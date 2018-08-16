@@ -24,14 +24,8 @@ import subprocess
 from dexbot.whiptail import get_whiptail
 from dexbot.basestrategy import BaseStrategy
 
-# FIXME: auto-discovery of strategies would be cool but can't figure out a way
-STRATEGIES = [
-    {'tag': 'relative',
-     'class': 'dexbot.strategies.relative_orders',
-     'name': 'Relative Orders'},
-    {'tag': 'stagger',
-     'class': 'dexbot.strategies.staggered_orders',
-     'name': 'Staggered Orders'}]
+from bitshares import BitShares
+
 
 SYSTEMD_SERVICE_NAME = os.path.expanduser(
     "~/.local/share/systemd/user/dexbot.service")
@@ -183,7 +177,7 @@ def configure_worker(whiptail, worker):
     return worker
 
 
-def configure_dexbot(config, ctx):
+def configure_dexbot(config):
     whiptail = get_whiptail('DEXBot configure')
     workers = config.get('workers', {})
     if not workers:
@@ -194,7 +188,9 @@ def configure_dexbot(config, ctx):
                 break
         setup_systemd(whiptail, config)
     else:
-        bitshares_instance = ctx.bitshares
+        bitshares_instance = BitShares(
+            config["node"],
+            num_retries=-1)
         action = whiptail.menu(
             "You have an existing configuration.\nSelect an action:",
             [('NEW', 'Create a new worker'),
