@@ -26,6 +26,14 @@ from dexbot.basestrategy import BaseStrategy
 
 from bitshares import BitShares
 
+# FIXME: auto-discovery of strategies would be cool but can't figure out a way
+STRATEGIES = [
+    {'tag': 'relative',
+     'class': 'dexbot.strategies.relative_orders',
+     'name': 'Relative Orders'},
+    {'tag': 'stagger',
+     'class': 'dexbot.strategies.staggered_orders',
+     'name': 'Staggered Orders'}]
 
 SYSTEMD_SERVICE_NAME = os.path.expanduser(
     "~/.local/share/systemd/user/dexbot.service")
