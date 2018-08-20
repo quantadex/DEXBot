@@ -89,8 +89,6 @@ def run(ctx):
             signal.signal(signal.SIGHUP, kill_workers)
 
             def reload_config():
-                import pdb
-                pdb.set_trace()
                 newconfig = yaml.safe_load(open(ctx.obj["configfile"]))
                 worker.reload_config(newconfig)
                 worker.update_notify()
