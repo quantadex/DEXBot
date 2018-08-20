@@ -86,33 +86,37 @@ def chain(f):
     return update_wrapper(new_func, f)
 
 
+def unlock_wallet(bitshares, systemd=False):
+    if bitshares.wallet.created():
+        if "UNLOCK" in os.environ:
+            pwd = os.environ["UNLOCK"]
+        else:
+            if systemd:
+                # No user available to interact with
+                log.critical("Passphrase not available, exiting")
+                sys.exit(78)  # 'configuration error' in sysexits.h
+            pwd = click.prompt(
+                "Current Wallet Passphrase", hide_input=True)
+        bitshares.wallet.unlock(pwd)
+    else:
+        if systemd:
+            # No user available to interact with
+            log.critical("Wallet not installed, cannot run")
+            sys.exit(78)
+        click.echo("No wallet installed yet. Creating ...")
+        pwd = click.prompt(
+            "Wallet Encryption Passphrase",
+            hide_input=True,
+            confirmation_prompt=True)
+        bitshares.wallet.create(pwd)
+
+
 def unlock(f):
     @click.pass_context
     def new_func(ctx, *args, **kwargs):
         if not ctx.obj.get("unsigned", False):
             systemd = ctx.obj.get('systemd', False)
-            if ctx.bitshares.wallet.created():
-                if "UNLOCK" in os.environ:
-                    pwd = os.environ["UNLOCK"]
-                else:
-                    if systemd:
-                        # No user available to interact with
-                        log.critical("Passphrase not available, exiting")
-                        sys.exit(78)  # 'configuration error' in sysexits.h
-                    pwd = click.prompt(
-                        "Current Wallet Passphrase", hide_input=True)
-                ctx.bitshares.wallet.unlock(pwd)
-            else:
-                if systemd:
-                    # No user available to interact with
-                    log.critical("Wallet not installed, cannot run")
-                    sys.exit(78)
-                click.echo("No wallet installed yet. Creating ...")
-                pwd = click.prompt(
-                    "Wallet Encryption Passphrase",
-                    hide_input=True,
-                    confirmation_prompt=True)
-                ctx.bitshares.wallet.create(pwd)
+            unlock_wallet(ctx.bitshares, systemd)
         return ctx.invoke(f, *args, **kwargs)
     return update_wrapper(new_func, f)
 

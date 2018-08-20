@@ -7,6 +7,7 @@ import copy
 
 import dexbot.errors as errors
 from dexbot.basestrategy import BaseStrategy
+import dexbot.ui as ui
 
 from bitshares import BitShares
 from bitshares.notify import Notify
@@ -90,8 +91,15 @@ class WorkerInfrastructure(threading.Thread):
     def reload_config(self, newconfig):
         """reload the configuration while still running
         """
-        # FIXME: won't reload the BitShares instance
         self.config_lock.acquire()
+        if self.config["node"] != newconfig["node"]:
+            self.bitshares = BitShares(
+                newconfig["node"],
+                num_retries=-1)
+            ui.unlock_wallet(self.bitshares)
+            new_bitshares = True
+        else:
+            new_bitshares = False
         newconfig_workers = set(newconfig["workers"].keys())
         oldconfig_workers = set(self.config["workers"].keys())
         self.accounts = set()
@@ -105,8 +113,10 @@ class WorkerInfrastructure(threading.Thread):
             del self.workers[workername]
         # workers changed
         for workername in oldconfig_workers & newconfig_workers:
-            if newconfig["workers"][workername] != self.config["workers"][workername]:
+            if newconfig["workers"][workername] != self.config["workers"][workername] or new_bitshares:
                 worker = self.workers[workername]
+                if new_bitshares:
+                    worker.bitshares = self.bitshares
                 worker.purge()
                 if hasattr(worker, "check_orders"):
                     worker.check_orders()
