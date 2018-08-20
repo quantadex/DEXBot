@@ -196,9 +196,6 @@ def configure_dexbot(config):
                 break
         setup_systemd(whiptail, config)
     else:
-        bitshares_instance = BitShares(
-            config["node"],
-            num_retries=-1)
         action = whiptail.menu(
             "You have an existing configuration.\nSelect an action:",
             [('NEW', 'Create a new worker'),
@@ -209,15 +206,9 @@ def configure_dexbot(config):
         if action == 'EDIT':
             worker_name = whiptail.menu("Select worker to edit", [(i, i) for i in workers])
             config['workers'][worker_name] = configure_worker(whiptail, config['workers'][worker_name])
-
-            strategy = BaseStrategy(worker_name, bitshares_instance=bitshares_instance)
-            strategy.purge()
         elif action == 'DEL':
             worker_name = whiptail.menu("Select worker to delete", [(i, i) for i in workers])
             del config['workers'][worker_name]
-
-            strategy = BaseStrategy(worker_name, bitshares_instance=bitshares_instance)
-            strategy.purge()
         elif action == 'NEW':
             txt = whiptail.prompt("Your name for the new worker")
             config['workers'][txt] = configure_worker(whiptail, {})
@@ -229,7 +220,6 @@ def configure_dexbot(config):
             # Move selected node as first item in the config file's node list
             config['node'].remove(choice)
             config['node'].insert(0, choice)
-
             setup_systemd(whiptail, config)
     whiptail.clear()
     return config

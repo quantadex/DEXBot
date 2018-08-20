@@ -52,36 +52,69 @@ class WorkerInfrastructure(threading.Thread):
         """
         self.config_lock.acquire()
         for worker_name, worker in config["workers"].items():
-            if "account" not in worker:
-                log_workers.critical("Worker has no account", extra={
-                    'worker_name': worker_name, 'account': 'unknown',
-                    'market': 'unknown', 'is_disabled': (lambda: True)
-                })
-                continue
-            if "market" not in worker:
-                log_workers.critical("Worker has no market", extra={
-                    'worker_name': worker_name, 'account': worker['account'],
-                    'market': 'unknown', 'is_disabled': (lambda: True)
-                })
-                continue
-            try:
-                strategy_class = getattr(
-                    importlib.import_module(worker["module"]),
-                    'Strategy'
-                )
-                self.workers[worker_name] = strategy_class(
-                    config=config,
-                    name=worker_name,
-                    bitshares_instance=self.bitshares,
-                    view=self.view
-                )
-                self.markets.add(worker['market'])
-                self.accounts.add(worker['account'])
-            except BaseException:
-                log_workers.exception("Worker initialisation", extra={
-                    'worker_name': worker_name, 'account': worker['account'],
-                    'market': 'unknown', 'is_disabled': (lambda: True)
-                })
+            self.init_single_worker(worker_name, worker, config)
+        self.config_lock.release()
+
+    def init_single_worker(self, workername, worker, config):
+        if "account" not in worker:
+            log_workers.critical("Worker has no account", extra={
+                'worker_name': workername, 'account': 'unknown',
+                'market': 'unknown', 'is_disabled': (lambda: True)
+            })
+            return
+        if "market" not in worker:
+            log_workers.critical("Worker has no market", extra={
+                'worker_name': workername, 'account': worker['account'],
+                'market': 'unknown', 'is_disabled': (lambda: True)
+            })
+            return
+        try:
+            strategy_class = getattr(
+                importlib.import_module(worker["module"]),
+                'Strategy'
+            )
+            self.workers[workername] = strategy_class(
+                config=config,
+                name=workername,
+                bitshares_instance=self.bitshares,
+                view=self.view
+            )
+            self.markets.add(worker['market'])
+            self.accounts.add(worker['account'])
+        except BaseException:
+            log_workers.exception("Worker initialisation", extra={
+                'worker_name': workername, 'account': worker['account'],
+                'market': 'unknown', 'is_disabled': (lambda: True)
+            })
+
+    def reload_config(self, newconfig):
+        """reload the configuration while still running
+        """
+        # FIXME: won't reload the BitShares instance
+        self.config_lock.acquire()
+        newconfig_workers = set(newconfig["workers"].keys())
+        oldconfig_workers = set(self.config["workers"].keys())
+        self.accounts = set()
+        self.markets = set()
+        # new workers
+        for workername in newconfig_workers - oldconfig_workers:
+            self.init_single_worker(workername, newconfig['workers'][workername], newconfig)
+        # workers deleted
+        for workername in oldconfig_workers - newconfig_workers:
+            self.workers[workername].purge()
+            del self.workers[workername]
+        # workers changed
+        for workername in oldconfig_workers & newconfig_workers:
+            if newconfig["workers"][workername] != self.config["workers"][workername]:
+                worker = self.workers[workername]
+                worker.purge()
+                if hasattr(worker, "check_orders"):
+                    worker.check_orders()
+                else:
+                    worker.log.warning("no check_orders() method")
+            self.markets.add(newconfig["workers"][workername]['market'])
+            self.accounts.add(newconfig["workers"][workername]["account"])
+        self.config = newconfig
         self.config_lock.release()
 
     def update_notify(self):

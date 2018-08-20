@@ -22,7 +22,7 @@ from . import helper
 if "LANG" not in os.environ:
     os.environ['LANG'] = 'C.UTF-8'
 import click
-
+from ruamel import yaml
 
 log = logging.getLogger(__name__)
 
@@ -87,8 +87,14 @@ def run(ctx):
         try:
             # These signals are UNIX-only territory, will ValueError here on Windows
             signal.signal(signal.SIGHUP, kill_workers)
-            # TODO: reload config on SIGUSR1
-            # signal.signal(signal.SIGUSR1, lambda x, y: worker.do_next_tick(worker.reread_config))
+
+            def reload_config():
+                import pdb
+                pdb.set_trace()
+                newconfig = yaml.safe_load(open(ctx.obj["configfile"]))
+                worker.reload_config(newconfig)
+                worker.update_notify()
+            signal.signal(signal.SIGUSR1, lambda x, y: worker.do_next_tick(reload_config))
         except ValueError:
             log.debug("Cannot set all signals -- not available on this platform")
         if ctx.obj['systemd']:
@@ -111,19 +117,16 @@ def run(ctx):
 def configure(ctx):
     """ Interactively configure dexbot
     """
-    # Make sure the dexbot service isn't running while we do the config edits
-    if dexbot_service_running():
-        click.echo("Stopping dexbot daemon")
-        os.system('systemctl --user stop dexbot')
-
     config = Config(path=ctx.obj['configfile'])
     configure_dexbot(config)
     config.save_config()
-
     click.echo("New configuration saved")
     if config.get('systemd_status', 'disabled') == 'enabled':
-        click.echo("Starting dexbot daemon")
-        os.system("systemctl --user start dexbot")
+        if dexbot_service_running():
+            os.system("systemctl --user --signal=SIGUSR1 kill dexbot")
+        else:
+            click.echo("Starting dexbot daemon")
+            os.system("systemctl --user start dexbot")
 
 
 def worker_job(worker, job):
