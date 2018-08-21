@@ -89,8 +89,8 @@ def run(ctx):
             signal.signal(signal.SIGHUP, kill_workers)
 
             def reload_config():
-                newconfig = yaml.safe_load(open(ctx.obj["configfile"]))
-                worker.reload_config(newconfig)
+                new_config = yaml.safe_load(open(ctx.obj["configfile"]))
+                worker.reload_config(new_config)
                 worker.update_notify()
             signal.signal(signal.SIGUSR1, lambda x, y: worker.do_next_tick(reload_config))
         except ValueError:

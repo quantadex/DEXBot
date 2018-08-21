@@ -88,43 +88,43 @@ class WorkerInfrastructure(threading.Thread):
                 'market': 'unknown', 'is_disabled': (lambda: True)
             })
 
-    def reload_config(self, newconfig):
-        """reload the configuration while still running
+    def reload_config(self, new_config):
+        """ Reload the configuration while still running
         """
         self.config_lock.acquire()
-        if self.config["node"] != newconfig["node"]:
+        if self.config["node"] != new_config["node"]:
             self.bitshares = BitShares(
-                newconfig["node"],
+                new_config["node"],
                 num_retries=-1)
             ui.unlock_wallet(self.bitshares)
             new_bitshares = True
         else:
             new_bitshares = False
-        newconfig_workers = set(newconfig["workers"].keys())
-        oldconfig_workers = set(self.config["workers"].keys())
+        new_config_workers = set(new_config["workers"].keys())
+        old_config_workers = set(self.config["workers"].keys())
         self.accounts = set()
         self.markets = set()
-        # new workers
-        for workername in newconfig_workers - oldconfig_workers:
-            self.init_single_worker(workername, newconfig['workers'][workername], newconfig)
-        # workers deleted
-        for workername in oldconfig_workers - newconfig_workers:
-            self.workers[workername].purge()
-            del self.workers[workername]
-        # workers changed
-        for workername in oldconfig_workers & newconfig_workers:
-            if newconfig["workers"][workername] != self.config["workers"][workername] or new_bitshares:
-                worker = self.workers[workername]
+        # New workers
+        for worker_name in new_config_workers - old_config_workers:
+            self.init_single_worker(worker_name, new_config['workers'][worker_name], new_config)
+        # Workers deleted
+        for worker_name in old_config_workers - new_config_workers:
+            self.workers[worker_name].purge()
+            del self.workers[worker_name]
+        # Workers changed
+        for worker_name in old_config_workers & new_config_workers:
+            if new_config["workers"][worker_name] != self.config["workers"][worker_name] or new_bitshares:
+                worker = self.workers[worker_name]
                 if new_bitshares:
                     worker.bitshares = self.bitshares
                 worker.purge()
                 if hasattr(worker, "check_orders"):
                     worker.check_orders()
                 else:
-                    worker.log.warning("no check_orders() method")
-            self.markets.add(newconfig["workers"][workername]['market'])
-            self.accounts.add(newconfig["workers"][workername]["account"])
-        self.config = newconfig
+                    worker.log.warning("No check_orders() method")
+            self.markets.add(new_config["workers"][worker_name]['market'])
+            self.accounts.add(new_config["workers"][worker_name]["account"])
+        self.config = new_config
         self.config_lock.release()
 
     def update_notify(self):
