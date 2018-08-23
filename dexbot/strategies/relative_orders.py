@@ -31,39 +31,44 @@ class Strategy(BaseStrategy):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         self.log.info("Initializing Relative Orders")
 
         # Define Callbacks
         self.onMarketUpdate += self.check_orders
         self.onAccount += self.check_orders
-
         self.error_ontick = self.error
         self.error_onMarketUpdate = self.error
         self.error_onAccount = self.error
 
-        self.is_center_price_dynamic = self.worker["center_price_dynamic"]
-        if self.is_center_price_dynamic:
-            self.center_price = None
-        else:
-            self.center_price = self.worker["center_price"]
-
-        self.is_relative_order_size = self.worker.get('relative_order_size', False)
-        self.is_asset_offset = self.worker.get('center_price_offset', False)
-        self.manual_offset = self.worker.get('manual_offset', 0) / 100
-        self.order_size = float(self.worker.get('amount', 1))
-        self.spread = self.worker.get('spread') / 100
+        # Set strategy parameters
+        self.is_center_price_dynamic = None
+        self.center_price = None
+        self.is_relative_order_size = None
+        self.is_asset_offset = None
+        self.manual_offset = None
+        self.order_size = None
+        self.spread = None
+        self.update_strategy_properties()
 
         self.buy_price = None
         self.sell_price = None
+        self.initializing = True
 
         self.initial_balance = self['initial_balance'] or 0
-        self.worker_name = kwargs.get('name')
-        self.view = kwargs.get('view')
         self.check_orders()
 
     def error(self, *args, **kwargs):
-        self.cancel_all()
         self.disabled = True
+
+    def update_strategy_properties(self):
+        self.order_size = float(self.worker.get('amount', 1))
+        self.is_relative_order_size = self.worker.get('relative_order_size', False)
+        self.spread = self.worker.get('spread') / 100
+        self.is_center_price_dynamic = self.worker.get("center_price_dynamic")
+        self.center_price = self.worker.get("center_price")
+        self.is_asset_offset = self.worker.get('center_price_offset', False)
+        self.manual_offset = self.worker.get('manual_offset', 0) / 100
 
     @property
     def amount_quote(self):
@@ -145,6 +150,9 @@ class Strategy(BaseStrategy):
     def check_orders(self, *args, **kwargs):
         """ Tests if the orders need updating
         """
+        # Make sure the properties are up to date with config
+        self.update_strategy_properties()
+
         orders = self.fetch_orders()
 
         if not orders:
@@ -162,8 +170,10 @@ class Strategy(BaseStrategy):
 
             if orders_changed:
                 self.update_orders()
-            else:
+            elif self.initializing:
                 self.log.info("Orders correct on market")
+
+        self.initializing = False
 
         if self.view:
             self.update_gui_profit()

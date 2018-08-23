@@ -118,6 +118,7 @@ class WorkerInfrastructure(threading.Thread):
                 if new_bitshares:
                     worker.bitshares = self.bitshares
                 worker.purge()
+                worker.worker = new_config["workers"][worker_name]
                 if hasattr(worker, "check_orders"):
                     worker.check_orders()
                 else:

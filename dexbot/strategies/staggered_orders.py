@@ -44,18 +44,17 @@ class Strategy(BaseStrategy):
         self.onMarketUpdate += self.on_market_update_wrapper
         self.onAccount += self.check_orders
         self.ontick += self.tick
-
         self.error_ontick = self.error
         self.error_onMarketUpdate = self.error
         self.error_onAccount = self.error
 
-        self.worker_name = kwargs.get('name')
-        self.view = kwargs.get('view')
-        self.amount = self.worker['amount']
-        self.spread = self.worker['spread'] / 100
-        self.increment = self.worker['increment'] / 100
-        self.upper_bound = self.worker['upper_bound']
-        self.lower_bound = self.worker['lower_bound']
+        self.amount = None
+        self.spread = None
+        self.increment = None
+        self.upper_bound = None
+        self.lower_bound = None
+        self.update_strategy_properties()
+
         self.last_check = datetime.now()
 
         if self['setup_done']:
@@ -71,6 +70,13 @@ class Strategy(BaseStrategy):
 
     def error(self, *args, **kwargs):
         self.disabled = True
+
+    def update_strategy_properties(self):
+        self.amount = self.worker['amount']
+        self.spread = self.worker['spread'] / 100
+        self.increment = self.worker['increment'] / 100
+        self.upper_bound = self.worker['upper_bound']
+        self.lower_bound = self.worker['lower_bound']
 
     def init_strategy(self):
         # Make sure no orders remain
@@ -194,15 +200,21 @@ class Strategy(BaseStrategy):
     def check_orders(self, *args, **kwargs):
         """ Tests if the orders need updating
         """
+        # Make sure the properties are up to date with config
+        self.update_strategy_properties()
+
         order_placed = False
         orders = self.fetch_orders()
-        for order_id, order in orders.items():
-            current_order = self.get_order(order_id)
-            if not current_order:
-                # Write order to .csv log
-                self.write_order_log(self.worker_name, order)
-                self.place_reverse_order(order)
-                order_placed = True
+        if not orders:
+            self.init_strategy()
+        else:
+            for order_id, order in orders.items():
+                current_order = self.get_order(order_id)
+                if not current_order:
+                    # Write order to .csv log
+                    self.write_order_log(self.worker_name, order)
+                    self.place_reverse_order(order)
+                    order_placed = True
 
         if order_placed:
             self.log.info("Done placing orders")

@@ -160,6 +160,9 @@ class BaseStrategy(Storage, StateMachine, Events):
         else:
             self.config = config = Config.get_worker_config_file(name)
 
+        self.view = kwargs.get('view', None)
+
+        self.worker_name = name
         self.worker = config["workers"][name]
         self._account = Account(
             self.worker["account"],
