@@ -58,7 +58,13 @@ class Config(dict):
 
     @property
     def default_data(self):
-        return {'node': self.node_list, 'workers': {}}
+        """ Default data used to create an empty configuration file
+            :return: dict: node list and workers dict
+        """
+        return {
+            'node': self.node_list,
+            'workers': {}
+        }
 
     @property
     def workers_data(self):
