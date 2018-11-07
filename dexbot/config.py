@@ -20,6 +20,8 @@ class Config(dict):
             :param str path: path to the config file
         """
         super().__init__()
+
+        # Check if using custom path for the config
         if path:
             self.config_dir = os.path.dirname(path)
             self.config_file = path
@@ -28,15 +30,18 @@ class Config(dict):
             self.config_file = DEFAULT_CONFIG_FILE
 
         if config:
-            self.create_config(config, self.config_file)
-            self._config = self.load_config(self.config_file)
+            self.create(config, self.config_file)
         else:
             if not os.path.isfile(self.config_file):
-                self.create_config(self.default_data, self.config_file)
-            self._config = self.load_config(self.config_file)
+                # Config file was not found, creating default config+
+                self.create(self.default_data, self.config_file)
+
+        # Load config to cache from the configuration file
+        self._config = self.load(self.config_file)
 
         # In case there is not a list of nodes in the config file,
         # the node will be replaced by a list of pre-defined nodes.
+        # This prevents deleting worker config in a case where user has deleted nodes but left worker
         if isinstance(self._config['node'], str):
             self._config['node'] = self.node_list
             self.save()
@@ -78,7 +83,7 @@ class Config(dict):
         return self._config
 
     @staticmethod
-    def create_config(config, path=None):
+    def create(config, path=None):
         if not path:
             config_dir = DEFAULT_CONFIG_DIR
             config_file = DEFAULT_CONFIG_FILE
@@ -129,7 +134,11 @@ class Config(dict):
         config['workers'] = OrderedDict({worker_name: config['workers'][worker_name]})
         return config
 
-    def remove_worker_config(self, worker_name):
+        # Return only the config items matching the worker_name
+        # config = self.workers_data.get(worker_name)
+        # return config
+
+    def remove_worker(self, worker_name):
         self._config['workers'].pop(worker_name, None)
 
         with open(self.config_file, 'w') as f:
