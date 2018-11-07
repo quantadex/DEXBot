@@ -39,7 +39,7 @@ class Config(dict):
         # the node will be replaced by a list of pre-defined nodes.
         if isinstance(self._config['node'], str):
             self._config['node'] = self.node_list
-            self.save_config()
+            self.save()
 
     def __setitem__(self, key, value):
         self._config[key] = value
@@ -100,7 +100,7 @@ class Config(dict):
         with open(path, 'r') as f:
             return Config.ordered_load(f, loader=yaml.SafeLoader)
 
-    def save_config(self):
+    def save(self):
         with open(self.config_file, 'w') as f:
             yaml.dump(self._config, f, default_flow_style=False)
 
