@@ -235,10 +235,12 @@ class WorkerInfrastructure(threading.Thread):
     def remove_offline_worker(config, worker_name, bitshares_instance):
         # Initialize the base strategy to get control over the data
         strategy = StrategyBase(worker_name, config, bitshares_instance=bitshares_instance)
+        # Purge all worker data and cancel orders
         strategy.purge()
 
     @staticmethod
     def remove_offline_worker_data(worker_name):
+        # Remove all worker data, but don't cancel orders
         StrategyBase.purge_all_local_worker_data(worker_name)
 
     def do_next_tick(self, job):
