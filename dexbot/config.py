@@ -93,7 +93,7 @@ class Config(dict):
             yaml.dump(config, f, default_flow_style=False)
 
     @staticmethod
-    def load_config(path=None):
+    def load(path=None):
         if not path:
             path = DEFAULT_CONFIG_FILE
 
@@ -105,7 +105,7 @@ class Config(dict):
             yaml.dump(self._config, f, default_flow_style=False)
 
     def refresh_config(self):
-        self._config = self.load_config(self.config_file)
+        self._config = self.load(self.config_file)
 
     @staticmethod
     def get_worker_config_file(worker_name, path=None):
