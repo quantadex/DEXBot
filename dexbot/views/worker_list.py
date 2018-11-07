@@ -26,6 +26,8 @@ class MainView(QtWidgets.QMainWindow, Ui_MainWindow):
         self.config = main_ctrl.config
         self.max_workers = 10
         self.num_of_workers = 0
+        # Number of active workers
+        self.num_of_active_workers = 0
         self.worker_widgets = {}
         self.closing = False
         self.statusbar_updater = None
@@ -43,7 +45,7 @@ class MainView(QtWidgets.QMainWindow, Ui_MainWindow):
             self.add_worker_widget(worker_name)
 
             # Limit the max amount of workers so that the performance isn't greatly affected
-            if self.num_of_workers >= self.max_workers:
+            if self.num_of_active_workers >= self.max_workers:
                 self.add_worker_button.setEnabled(False)
                 break
 
@@ -67,15 +69,15 @@ class MainView(QtWidgets.QMainWindow, Ui_MainWindow):
         self.worker_widgets[worker_name] = widget
 
         # Limit the max amount of workers so that the performance isn't greatly affected
-        self.num_of_workers += 1
-        if self.num_of_workers >= self.max_workers:
+        self.num_of_active_workers += 1
+        if self.num_of_active_workers >= self.max_workers:
             self.add_worker_button.setEnabled(False)
 
     def remove_worker_widget(self, worker_name):
         self.worker_widgets.pop(worker_name, None)
 
-        self.num_of_workers -= 1
-        if self.num_of_workers < self.max_workers:
+        self.num_of_active_workers -= 1
+        if self.num_of_active_workers < self.max_workers:
             self.add_worker_button.setEnabled(True)
 
     def change_worker_widget_name(self, old_worker_name, new_worker_name):
