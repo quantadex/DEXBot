@@ -28,9 +28,7 @@ class WorkerInfrastructure(threading.Thread):
         self.bitshares = bitshares_instance or shared_bitshares_instance()
 
         # Global configuration file including all the workers
-        # Why is this deep copied?
-        # self.config = copy.deepcopy(config)
-        self.config = config
+        self.config = copy.deepcopy(config)
 
         # Main view
         self.view = view
@@ -71,7 +69,7 @@ class WorkerInfrastructure(threading.Thread):
                     'Strategy'
                 )
                 self.workers[worker_name] = strategy_class(
-                    config=config,
+                    config=config['workers'][worker_name],
                     name=worker_name,
                     bitshares_instance=self.bitshares,
                     view=self.view
@@ -83,6 +81,42 @@ class WorkerInfrastructure(threading.Thread):
                     'worker_name': worker_name, 'account': worker['account'],
                     'market': 'unknown', 'is_disabled': (lambda: True)
                 })
+
+    def init_worker(self, worker_name, worker_config):
+        """ Initialize the worker
+        """
+        worker_config = worker_config[worker_name]
+
+        if "account" not in worker_config:
+            log_workers.critical("Worker has no account", extra={
+                'worker_name': worker_name, 'account': 'unknown',
+                'market': 'unknown', 'is_disabled': (lambda: True)
+            })
+
+        if "market" not in worker_config:
+            log_workers.critical("Worker has no market", extra={
+                'worker_name': worker_name, 'account': worker_config['account'],
+                'market': 'unknown', 'is_disabled': (lambda: True)
+            })
+
+        try:
+            strategy_class = getattr(
+                importlib.import_module(worker_config["module"]),
+                'Strategy'
+            )
+            self.workers[worker_name] = strategy_class(
+                config=worker_config,
+                name=worker_name,
+                bitshares_instance=self.bitshares,
+                view=self.view
+            )
+            self.markets.add(worker_config['market'])
+            self.accounts.add(worker_config['account'])
+        except BaseException:
+            log_workers.exception("Worker initialisation", extra={
+                'worker_name': worker_name, 'account': worker_config['account'],
+                'market': 'unknown', 'is_disabled': (lambda: True)
+            })
 
     def update_notify(self):
         if not self.config['workers']:
@@ -161,8 +195,8 @@ class WorkerInfrastructure(threading.Thread):
                         self.workers[worker_name].log.exception("in error_onAccountUpdate()")
 
     def add_worker(self, worker_name, config):
-        self.config['workers'][worker_name] = config['workers'][worker_name]
-        self.init_workers(config)
+        # self.config['workers'][worker_name] = config['workers'][worker_name]
+        self.init_worker(worker_name, config)
         self.update_notify()
 
     def run(self):

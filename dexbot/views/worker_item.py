@@ -13,11 +13,11 @@ from PyQt5 import QtCore, QtWidgets
 
 class WorkerItemWidget(QtWidgets.QWidget, Ui_widget):
 
-    def __init__(self, worker_name, config, main_controller, view):
+    def __init__(self, worker_name, worker_config, main_controller, view):
         super().__init__()
 
         self.worker_name = worker_name
-        self.worker_config = config
+        self.worker_config = worker_config
         self.main_controller = main_controller
         self.view = view
         self.running = False
@@ -29,16 +29,18 @@ class WorkerItemWidget(QtWidgets.QWidget, Ui_widget):
         self.toggle.mouseReleaseEvent = lambda _: self.toggle_worker()
         self.onoff.mouseReleaseEvent = lambda _: self.toggle_worker()
 
-        self.setup_ui_data(config)
+        self.setup_ui_data(worker_config)
 
     def setup_ui_data(self, config):
         worker_name = self.worker_name
+
+        # Set worker name
         self.set_worker_name(worker_name)
 
-        market = config['workers'][worker_name]['market']
+        market = config[worker_name]['market']
         self.set_worker_market(market)
 
-        module = config['workers'][worker_name]['module']
+        module = config[worker_name]['module']
         strategies = WorkerController.get_strategies()
         self.set_worker_strategy(strategies[module]['name'])
 

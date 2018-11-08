@@ -47,12 +47,13 @@ class MainController:
     def set_info_handler(self, handler):
         self.pyqt_handler.set_info_handler(handler)
 
-    def start_worker(self, worker_name, config, view):
+    def start_worker(self, worker_name, worker_config, view):
         # Todo: Add some threading here so that the GUI doesn't freeze
         if self.worker_manager and self.worker_manager.is_alive():
-            self.worker_manager.add_worker(worker_name, config)
+            # Add new worker for the worker manager
+            self.worker_manager.add_worker(worker_name, worker_config)
         else:
-            self.worker_manager = WorkerInfrastructure(config, self.bitshares_instance, view)
+            self.worker_manager = WorkerInfrastructure(self.config, self.bitshares_instance, view)
             self.worker_manager.daemon = True
             self.worker_manager.start()
 

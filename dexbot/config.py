@@ -130,13 +130,9 @@ class Config(dict):
         """ Returns config file data with only the data from a specific worker.
             Config loaded from memory
         """
-        config = self._config.copy()
-        config['workers'] = OrderedDict({worker_name: config['workers'][worker_name]})
+        # config = self._config.copy()
+        config = OrderedDict({worker_name: self._config['workers'][worker_name]})
         return config
-
-        # Return only the config items matching the worker_name
-        # config = self.workers_data.get(worker_name)
-        # return config
 
     def remove_worker(self, worker_name):
         self._config['workers'].pop(worker_name, None)

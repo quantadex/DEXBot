@@ -224,11 +224,11 @@ class StrategyBase(BaseStrategy, Storage, StateMachine, Events):
             self.config = config = Config.get_worker_config_file(name)
 
         # Get worker's parameters from the config
-        self.worker = config["workers"][name]
+        self.worker = config
 
         # Get Bitshares account and market for this worker
         self._account = Account(self.worker["account"], full=True, bitshares_instance=self.bitshares)
-        self._market = Market(config["workers"][name]["market"], bitshares_instance=self.bitshares)
+        self._market = Market(self.worker["market"], bitshares_instance=self.bitshares)
 
         # Recheck flag - Tell the strategy to check for updated orders
         self.recheck_orders = False

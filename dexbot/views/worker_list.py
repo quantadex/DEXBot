@@ -71,12 +71,16 @@ class MainView(QMainWindow, Ui_MainWindow):
         QtGui.QFontDatabase.addApplicationFont(":/bot_widget/font/SourceSansPro-Bold.ttf")
 
     def add_worker_widget(self, worker_name):
-        config = self.main_controller.config.get_worker_config(worker_name)
+        worker_config = self.main_controller.config.get_worker_config(worker_name)
 
-        widget = WorkerItemWidget(worker_name, config, self.main_controller, view=self)
+        widget = WorkerItemWidget(worker_name, worker_config, self.main_controller, view=self)
         widget.setFixedSize(widget.frameSize())
-        self.layout.addWidget(widget)
+
+        # Add worker item widget to a list of workers
         self.worker_widgets[worker_name] = widget
+
+        # Add worker item widget to the main layout
+        self.layout.addWidget(widget)
 
         # Limit the max amount of workers so that the performance isn't greatly affected
         self.num_of_active_workers += 1

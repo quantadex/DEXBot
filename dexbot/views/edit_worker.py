@@ -6,7 +6,7 @@ from PyQt5 import QtWidgets
 
 class EditWorkerView(QtWidgets.QDialog, Ui_Dialog):
 
-    def __init__(self, parent_widget, bitshares_instance, worker_name, config):
+    def __init__(self, parent_widget, bitshares_instance, worker_name, worker_config):
         super().__init__()
         self.worker_name = worker_name
         self.strategy_widget = None
@@ -15,7 +15,7 @@ class EditWorkerView(QtWidgets.QDialog, Ui_Dialog):
         self.parent_widget = parent_widget
 
         self.setupUi(self)
-        worker_data = config['workers'][worker_name]
+        worker_data = worker_config[worker_name]
 
         # Todo: Using a model here would be more Qt like
         # Populate the combobox

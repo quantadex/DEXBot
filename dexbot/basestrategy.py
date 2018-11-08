@@ -160,14 +160,14 @@ class BaseStrategy(Storage, StateMachine, Events):
         else:
             self.config = config = Config.get_worker_config_file(name)
 
-        self.worker = config["workers"][name]
+        self.worker = config
         self._account = Account(
             self.worker["account"],
             full=True,
             bitshares_instance=self.bitshares
         )
         self._market = Market(
-            config["workers"][name]["market"],
+            config["market"],
             bitshares_instance=self.bitshares
         )
 
