@@ -48,12 +48,6 @@ class MainView(QMainWindow, Ui_MainWindow):
         self.settings_button.clicked.connect(lambda: self.handle_open_settings())
         self.help_button.clicked.connect(lambda: self.handle_open_documentation())
 
-        # Configure threading
-        self.thread_pool = QThreadPool()
-        # Create thread pool size of the maximum number of workers.
-        self.thread_pool.setMaxThreadCount(self.max_workers)
-        print('Multi threading with max {} threads'.format(self.thread_pool.maxThreadCount()))
-
         # Load worker widgets from config file
         # Todo: THREADING HERE
         # Assign thread for each worker item widget and then set it up so that start worker button starts the thread
