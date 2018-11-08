@@ -83,7 +83,4 @@ class MainController:
         # Todo: Rename this function to something better
         # In case worker is deleted only from config file, there are still information with the name in the database
         # This function removes all that data and cancels orders so that new worker can take the name in it's use
-        WorkerInfrastructure.remove_offline_worker_data(worker_name)
-
-        # Wound't this be just shortcut to achieve the same thing??
-        # Storage.clear_worker_data(worker_name)
+        Storage.clear_worker_data(worker_name)
