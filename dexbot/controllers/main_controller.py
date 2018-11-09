@@ -20,7 +20,12 @@ class MainController:
 
         # Global configuration which includes all the workers
         self.config = config
-        self.worker_manager = None
+
+        # Worker Infrastructure
+        self.worker_manager = []
+
+        # Threading test
+        self.workers = {}
 
         # Configure logging
         data_dir = user_data_dir(APP_NAME, AUTHOR)
@@ -48,36 +53,35 @@ class MainController:
         self.pyqt_handler.set_info_handler(handler)
 
     def start_worker(self, worker_name, worker_config, view):
-        # Todo: Add some threading here so that the GUI doesn't freeze
-        if self.worker_manager and self.worker_manager.is_alive():
-            # Add new worker for the worker manager
-            self.worker_manager.add_worker(worker_name, worker_config)
-        else:
-            self.worker_manager = WorkerInfrastructure(self.config, self.bitshares_instance, view)
-            self.worker_manager.daemon = True
-            self.worker_manager.start()
+        # Start only one worker in it's own thread and add that thread to active workers list for this controller
+        self.workers[worker_name] = WorkerThread(worker_name, worker_config, self.bitshares_instance, view)
+        self.workers[worker_name].daemon = True
+
+        try:
+            # Start the WorkerThread
+            self.workers[worker_name].start()
+        except RuntimeError:
+            # start() already called for this WorkerThread object
+            pass
 
     def pause_worker(self, worker_name, config=None):
-        if self.worker_manager and self.worker_manager.is_alive():
-            self.worker_manager.stop(worker_name, pause=True)
-        else:
-            self.worker_manager = WorkerInfrastructure(config, self.bitshares_instance)
+        # This check prevents pausing after edit if the worker isn't active
+        if worker_name in self.workers:
+            # Fixme: Worker doesn't pause
+            # Pause worker thread
+            self.workers[worker_name].stop(worker_name, pause=True)
+
+            # Remove worker thread from the list
+            self.workers.pop(worker_name)
 
     def remove_worker(self, worker_name):
-        # Todo: Add some threading here so that the GUI doesn't freeze
-        if self.worker_manager and self.worker_manager.is_alive():
-            # Worker manager currently running
-            if worker_name in self.worker_manager.workers:
-                self.worker_manager.remove_worker(worker_name)
-                self.worker_manager.stop(worker_name)
-            else:
-                # Worker not running
-                config = self.config.get_worker_config(worker_name)
-                WorkerInfrastructure.remove_offline_worker(config, worker_name, self.bitshares_instance)
+        if worker_name in self.workers:
+            self.workers[worker_name].remove_worker(worker_name)
+            self.workers[worker_name].stop(worker_name)
         else:
-            # Worker manager not running
-            config = self.config.get_worker_config(worker_name)
-            WorkerInfrastructure.remove_offline_worker(config, worker_name, self.bitshares_instance)
+            # Worker not running
+            worker_config = self.config.get_worker_config(worker_name)[worker_name]
+            WorkerThread.remove_offline_worker(worker_name, worker_config, self.bitshares_instance)
 
     @staticmethod
     def create_worker(worker_name):
