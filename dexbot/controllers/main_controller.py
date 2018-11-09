@@ -4,7 +4,7 @@ import sys
 
 from dexbot import VERSION, APP_NAME, AUTHOR
 from dexbot.helper import initialize_orders_log, initialize_data_folders
-from dexbot.worker import WorkerInfrastructure
+from dexbot.worker import WorkerThread
 from dexbot.views.errors import PyQtHandler
 from dexbot.storage import Storage
 

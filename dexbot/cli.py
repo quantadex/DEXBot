@@ -14,7 +14,7 @@ from dexbot.ui import (
     unlock,
     configfile
 )
-from .worker import WorkerInfrastructure
+from .worker import WorkerThread
 from .cli_conf import configure_dexbot, dexbot_service_running
 from . import errors
 from . import helper
@@ -82,7 +82,7 @@ def run(ctx):
         with open(ctx.obj['pidfile'], 'w') as fd:
             fd.write(str(os.getpid()))
     try:
-        worker = WorkerInfrastructure(ctx.config)
+        worker = WorkerThread(ctx.config)
         # Set up signalling. do it here as of no relevance to GUI
         kill_workers = worker_job(worker, lambda: worker.stop(pause=True))
         # These first two UNIX & Windows
