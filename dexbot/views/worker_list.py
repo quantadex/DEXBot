@@ -13,7 +13,6 @@ from .errors import gui_error
 from .layouts.flow_layout import FlowLayout
 
 from PyQt5 import QtGui
-from PyQt5.QtCore import QThreadPool
 from PyQt5.QtWidgets import QMainWindow
 from bitsharesapi.bitsharesnoderpc import BitSharesNodeRPC
 
