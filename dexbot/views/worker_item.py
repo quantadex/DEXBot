@@ -8,10 +8,11 @@ from dexbot.storage import db_worker
 from dexbot.controllers.worker_controller import WorkerController
 from dexbot.views.errors import gui_error
 
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore
+from PyQt5.QtWidgets import QWidget
 
 
-class WorkerItemWidget(QtWidgets.QWidget, Ui_widget):
+class WorkerItemWidget(QWidget, Ui_widget):
 
     def __init__(self, worker_name, worker_config, main_controller, view):
         super().__init__()
