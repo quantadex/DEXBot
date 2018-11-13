@@ -9,6 +9,7 @@ from dexbot.strategies.base import StrategyBase
 
 from bitshares.notify import Notify
 from bitshares.instance import shared_bitshares_instance
+from PyQt5.QtCore import QThread, pyqtSignal
 
 log = logging.getLogger(__name__)
 log_workers = logging.getLogger('dexbot.per_worker')
@@ -18,7 +19,7 @@ log_workers = logging.getLogger('dexbot.per_worker')
 # GUIs can add a handler to this logger to get a stream of events of the running workers.
 
 
-class WorkerThread(threading.Thread):
+class WorkerThread(QThread):
 
     def __init__(self, worker_name, worker_config, bitshares_instance=None, view=None):
         super().__init__()
@@ -46,7 +47,6 @@ class WorkerThread(threading.Thread):
     def init_worker(self, worker_name, worker_config):
         """ Initialize the worker
         """
-        print('Thread for worker {} is {} initialized'.format(worker_name, threading.current_thread()))
         worker_config = worker_config[worker_name]
 
         if "account" not in worker_config:
@@ -89,7 +89,6 @@ class WorkerThread(threading.Thread):
             })
 
     def update_notify(self):
-        print('Thread for worker {} is {} in update_notify()'.format(self.worker_name, threading.current_thread()))
         if not self.worker_config:
             log.critical("No worker configured to launch, exiting")
             raise errors.NoWorkersAvailable()
@@ -112,7 +111,7 @@ class WorkerThread(threading.Thread):
 
     # Events
     def on_block(self, data):
-        print('Thread for worker {} is {} in on_block()'.format(self.worker_name, threading.current_thread()))
+        print('on_block: {}'.format(self.worker_name))
         if self.jobs:
             try:
                 for job in self.jobs:
@@ -130,7 +129,7 @@ class WorkerThread(threading.Thread):
                 self.worker[self.worker_name].log.exception("in error_ontick()")
 
     def on_market(self, data):
-        print('Thread for worker {} is {} in on_market()'.format(self.worker_name, threading.current_thread()))
+        print('on_market: {}'.format(self.worker_name))
         if data.get("deleted", False):  # No info available on deleted orders
             return
 
@@ -148,7 +147,7 @@ class WorkerThread(threading.Thread):
                     self.worker[self.worker_name].log.exception("in error_onMarketUpdate()")
 
     def on_account(self, account_update):
-        print('Thread for worker {} is {} in on_account()'.format(self.worker_name, threading.current_thread()))
+        print('on_account: {}'.format(self.worker_name))
         account = account_update.account
 
         if self.worker[self.worker_name].disabled:
@@ -186,8 +185,6 @@ class WorkerThread(threading.Thread):
             return
 
         account = self.worker_config[worker_name]['account']
-        self.worker_config = []
-
         self.account.remove(account)
 
         # if pause:
@@ -200,7 +197,7 @@ class WorkerThread(threading.Thread):
         # else:
 
         # Close the websocket connection for this worker (?)
-        # self.notify.websocket.close()
+        self.notify.websocket.close()
 
     def remove_worker(self, worker_name=None):
         if worker_name:
@@ -213,7 +210,7 @@ class WorkerThread(threading.Thread):
         """ Remove the market only if the worker is the only one using it
         """
         # with self.config_lock:
-        market = self.worker_config['market']
+        market = self.worker_config[worker_name]['market']
         self.market.remove(market)
 
     @staticmethod
