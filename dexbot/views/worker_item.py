@@ -76,7 +76,6 @@ class WorkerItemWidget(QWidget, Ui_widget):
     @gui_error
     def start_worker(self):
         self.set_status("Starting worker")
-        # thread.start() HERE
         self._start_worker()
         self.main_controller.start_worker(self.worker_name, self.worker_config, self.view)
 
