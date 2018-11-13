@@ -16,7 +16,7 @@ class WorkerDetailsView(QtWidgets.QDialog, Ui_details_dialog, Ui_Graph_Tab, Ui_T
     def __init__(self, worker_name, config):
         super().__init__()
 
-        self.config = config['workers'].get(worker_name)
+        self.config = config.get(worker_name)
 
         # Initialize view controller
         self.controller = WorkerDetailsController(self, worker_name, self.config)
