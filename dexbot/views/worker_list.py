@@ -59,8 +59,9 @@ class MainView(QMainWindow, Ui_MainWindow):
                 break
 
         # Dispatcher polls for events from the workers that are used to change the ui
-        self.dispatcher = ThreadDispatcher(self)
-        self.dispatcher.start()
+        # Todo: This can be removed??
+        # self.dispatcher = ThreadDispatcher(self)
+        # self.dispatcher.start()
 
         # Statusbar updater
         self.status_bar.showMessage("ver {} - Node delay: - ms".format(__version__))
