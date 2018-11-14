@@ -5,7 +5,7 @@ import logging
 import time
 import os
 
-from dexbot.worker import WorkerThread
+from dexbot.worker import Worker
 
 from bitshares.bitshares import BitShares
 
@@ -35,8 +35,8 @@ class TestDexbot(unittest.TestCase):
 
     def test_dexbot(self):
         bitshares_instance = BitShares(node=TEST_CONFIG['node'], keys=KEYS)
-        worker_infrastructure = WorkerThread(worker_config=TEST_CONFIG,
-                                             bitshares_instance=bitshares_instance)
+        worker_infrastructure = Worker(worker_config=TEST_CONFIG,
+                                       bitshares_instance=bitshares_instance)
 
         def wait_then_stop():
             time.sleep(20)

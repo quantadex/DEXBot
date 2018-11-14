@@ -19,7 +19,7 @@ log_workers = logging.getLogger('dexbot.per_worker')
 # GUIs can add a handler to this logger to get a stream of events of the running workers.
 
 
-class WorkerThread(QThread):
+class Worker(QThread):
 
     def __init__(self, worker_name, worker_config, bitshares_instance=None, view=None):
         super().__init__()

@@ -4,7 +4,7 @@ import sys
 
 from dexbot import VERSION, APP_NAME, AUTHOR
 from dexbot.helper import initialize_orders_log, initialize_data_folders
-from dexbot.worker import WorkerThread
+from dexbot.worker import Worker
 from dexbot.views.errors import PyQtHandler
 from dexbot.storage import Storage
 
@@ -54,14 +54,14 @@ class MainController:
 
     def start_worker(self, worker_name, worker_config, view):
         # Start only one worker in it's own thread and add that thread to active workers list for this controller
-        self.workers[worker_name] = WorkerThread(worker_name, worker_config, self.bitshares_instance, view)
-        self.workers[worker_name].daemon = True
+        self.workers[worker_name] = Worker(worker_name, worker_config, self.bitshares_instance, view)
+        # self.workers[worker_name].daemon = True
 
         try:
-            # Start the WorkerThread
+            # Start the Worker
             self.workers[worker_name].start()
         except RuntimeError:
-            # start() already called for this WorkerThread object
+            # start() already called for this Worker object
             pass
 
     def pause_worker(self, worker_name, config=None):
@@ -81,7 +81,7 @@ class MainController:
         else:
             # Worker not running
             worker_config = self.config.get_worker_config(worker_name)[worker_name]
-            WorkerThread.remove_offline_worker(worker_name, worker_config, self.bitshares_instance)
+            Worker.remove_offline_worker(worker_name, worker_config, self.bitshares_instance)
 
     @staticmethod
     def create_worker(worker_name):
