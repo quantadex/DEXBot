@@ -33,8 +33,8 @@ class Worker(QThread):
         self.jobs = set()
         self.notify = None
 
-        # Active worker
-        self.worker = {}
+        # Strategy of the worker
+        self.strategy = {}
 
         self.account = set()
         self.market = set()
@@ -71,7 +71,8 @@ class Worker(QThread):
                 'Strategy'
             )
 
-            self.worker[worker_name] = strategy_class(
+            # Call strategy init here
+            self.strategy[worker_name] = strategy_class(
                 config=worker_config,
                 name=worker_name,
                 bitshares_instance=self.bitshares,
@@ -92,7 +93,7 @@ class Worker(QThread):
         if not self.worker_config:
             log.critical("No worker configured to launch, exiting")
             raise errors.NoWorkersAvailable()
-        if not self.worker:
+        if not self.strategy:
             log.critical("No worker actually running")
             raise errors.NoWorkersAvailable()
         if self.notify:
@@ -120,48 +121,48 @@ class Worker(QThread):
                 self.jobs = set()
 
         try:
-            self.worker[self.worker_name].ontick(data)
+            self.strategy[self.worker_name].ontick(data)
         except Exception as e:
-            self.worker[self.worker_name].log.exception("in ontick()")
+            self.strategy[self.worker_name].log.exception("in ontick()")
             try:
-                self.worker[self.worker_name].error_ontick(e)
+                self.strategy[self.worker_name].error_ontick(e)
             except Exception:
-                self.worker[self.worker_name].log.exception("in error_ontick()")
+                self.strategy[self.worker_name].log.exception("in error_ontick()")
 
     def on_market(self, data):
         print('on_market: {}'.format(self.worker_name))
         if data.get("deleted", False):  # No info available on deleted orders
             return
 
-        if self.worker[self.worker_name].disabled:
-            self.worker[self.worker_name].log.debug('Worker "{}" is disabled'.format(self.worker_name))
+        if self.strategy[self.worker_name].disabled:
+            self.strategy[self.worker_name].log.debug('Worker "{}" is disabled'.format(self.worker_name))
             return
         if self.worker_config[self.worker_name]['market'] == data.market:
             try:
-                self.worker[self.worker_name].onMarketUpdate(data)
+                self.strategy[self.worker_name].onMarketUpdate(data)
             except Exception as e:
-                self.worker[self.worker_name].log.exception("in onMarketUpdate()")
+                self.strategy[self.worker_name].log.exception("in onMarketUpdate()")
                 try:
-                    self.worker[self.worker_name].error_onMarketUpdate(e)
+                    self.strategy[self.worker_name].error_onMarketUpdate(e)
                 except Exception:
-                    self.worker[self.worker_name].log.exception("in error_onMarketUpdate()")
+                    self.strategy[self.worker_name].log.exception("in error_onMarketUpdate()")
 
     def on_account(self, account_update):
         print('on_account: {}'.format(self.worker_name))
         account = account_update.account
 
-        if self.worker[self.worker_name].disabled:
-            self.worker[self.worker_name].log.info('Worker "{}" is disabled'.format(self.worker_name))
+        if self.strategy[self.worker_name].disabled:
+            self.strategy[self.worker_name].log.info('Worker "{}" is disabled'.format(self.worker_name))
             return
-        if self.worker["account"] == account["name"]:
+        if self.strategy["account"] == account["name"]:
             try:
-                self.worker[self.worker_name].onAccount(account_update)
+                self.strategy[self.worker_name].onAccount(account_update)
             except Exception as e:
-                self.worker[self.worker_name].log.exception("in onAccountUpdate()")
+                self.strategy[self.worker_name].log.exception("in onAccountUpdate()")
                 try:
-                    self.worker[self.worker_name].error_onAccount(e)
+                    self.strategy[self.worker_name].error_onAccount(e)
                 except Exception:
-                    self.worker[self.worker_name].log.exception("in error_onAccountUpdate()")
+                    self.strategy[self.worker_name].log.exception("in error_onAccountUpdate()")
 
     def run(self):
         """ Thread run
@@ -201,10 +202,10 @@ class Worker(QThread):
 
     def remove_worker(self, worker_name=None):
         if worker_name:
-            self.worker[worker_name].purge()
+            self.strategy[worker_name].purge()
         else:
-            for worker in self.worker:
-                self.worker[worker].purge()
+            for worker in self.strategy:
+                self.strategy[worker].purge()
 
     def remove_market(self, worker_name):
         """ Remove the market only if the worker is the only one using it
