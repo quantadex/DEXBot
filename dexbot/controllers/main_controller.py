@@ -22,7 +22,7 @@ class MainController:
         self.config = config
 
         # Worker Infrastructure
-        self.worker_manager = []
+        # self.worker_manager = []
 
         # Threading test
         self.workers = {}
@@ -43,6 +43,7 @@ class MainController:
         logger.info("DEXBot {} on python {} {}".format(VERSION, sys.version[:6], sys.platform), extra={
                     'worker_name': 'NONE', 'account': 'NONE', 'market': 'NONE'})
 
+        # Todo: Could these be moved to a better place? (gui.py initialization?)
         # Configure orders logging
         initialize_orders_log()
 

@@ -34,7 +34,7 @@ class MainView(QMainWindow, Ui_MainWindow):
         self.num_of_active_workers = 0
 
         # Worker item widgets on the main view
-        self.worker_widgets = {}
+        self.workers = {}
 
         self.closing = False
         self.statusbar_updater = None
@@ -77,7 +77,7 @@ class MainView(QMainWindow, Ui_MainWindow):
         widget.setFixedSize(widget.frameSize())
 
         # Add worker item widget to a list of workers
-        self.worker_widgets[worker_name] = widget
+        self.workers[worker_name] = widget
 
         # Add worker item widget to the main layout
         self.layout.addWidget(widget)
@@ -88,15 +88,17 @@ class MainView(QMainWindow, Ui_MainWindow):
             self.add_worker_button.setEnabled(False)
 
     def remove_worker_widget(self, worker_name):
-        self.worker_widgets.pop(worker_name, None)
+        """ Remove deleted worker from the main view"""
+        self.workers.pop(worker_name, None)
 
         self.num_of_active_workers -= 1
         if self.num_of_active_workers < self.max_workers:
             self.add_worker_button.setEnabled(True)
 
     def change_worker_widget_name(self, old_worker_name, new_worker_name):
-        worker_data = self.worker_widgets.pop(old_worker_name)
-        self.worker_widgets[new_worker_name] = worker_data
+        """ Update worker name that has been edited """
+        worker_data = self.workers.pop(old_worker_name)
+        self.workers[new_worker_name] = worker_data
 
     @gui_error
     def handle_add_worker(self):
@@ -121,19 +123,19 @@ class MainView(QMainWindow, Ui_MainWindow):
         webbrowser.open('https://github.com/Codaone/DEXBot/wiki')
 
     def set_worker_name(self, worker_name, value):
-        self.worker_widgets[worker_name].set_worker_name(value)
+        self.workers[worker_name].set_worker_name(value)
 
     def set_worker_account(self, worker_name, value):
-        self.worker_widgets[worker_name].set_worker_account(value)
+        self.workers[worker_name].set_worker_account(value)
 
     def set_worker_profit(self, worker_name, value):
-        self.worker_widgets[worker_name].set_worker_profit(value)
+        self.workers[worker_name].set_worker_profit(value)
 
     def set_worker_market(self, worker_name, value):
-        self.worker_widgets[worker_name].set_worker_market(value)
+        self.workers[worker_name].set_worker_market(value)
 
     def set_worker_slider(self, worker_name, value):
-        self.worker_widgets[worker_name].set_worker_slider(value)
+        self.workers[worker_name].set_worker_slider(value)
 
     def customEvent(self, event):
         # Process idle_queue_dispatcher events
@@ -176,6 +178,6 @@ class MainView(QMainWindow, Ui_MainWindow):
 
     def set_worker_status(self, worker_name, level, status):
         if worker_name != 'NONE':
-            worker = self.worker_widgets.get(worker_name, None)
+            worker = self.workers.get(worker_name, None)
             if worker:
                 worker.set_status(status)
