@@ -3,7 +3,7 @@ from threading import Thread
 import webbrowser
 
 from dexbot import __version__
-from dexbot.qt_queue.queue_dispatcher import ThreadDispatcher
+# from dexbot.qt_queue.queue_dispatcher import ThreadDispatcher
 from dexbot.qt_queue.idle_queue import idle_add
 from .ui.worker_list_window_ui import Ui_MainWindow
 from .create_worker import CreateWorkerView
@@ -47,9 +47,11 @@ class MainView(QMainWindow, Ui_MainWindow):
         self.settings_button.clicked.connect(lambda: self.handle_open_settings())
         self.help_button.clicked.connect(lambda: self.handle_open_documentation())
 
+        # Threading stuff
+        # QThread.currentThread().setObjectName('main')
+        # print('Current thread is {}'.format(QThread.currentThread().objectName()))  # prints: main
+
         # Load worker widgets from config file
-        # Todo: THREADING HERE
-        # Assign thread for each worker item widget and then set it up so that start worker button starts the thread
         for worker_name in self.config.workers_data:
             self.add_worker_widget(worker_name)
 
@@ -71,6 +73,8 @@ class MainView(QMainWindow, Ui_MainWindow):
         QtGui.QFontDatabase.addApplicationFont(":/bot_widget/font/SourceSansPro-Bold.ttf")
 
     def add_worker_widget(self, worker_name):
+        """ Add worker widget to the main view """
+        # Pick worker config from the global config
         worker_config = self.main_controller.config.get_worker_config(worker_name)
 
         widget = WorkerItemWidget(worker_name, worker_config, self.main_controller, view=self)
@@ -83,6 +87,7 @@ class MainView(QMainWindow, Ui_MainWindow):
         self.layout.addWidget(widget)
 
         # Limit the max amount of workers so that the performance isn't greatly affected
+        # Todo: This limit could be removed once threading works, or could be adjusted in settings?
         self.num_of_active_workers += 1
         if self.num_of_active_workers >= self.max_workers:
             self.add_worker_button.setEnabled(False)

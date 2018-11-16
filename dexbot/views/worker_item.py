@@ -7,12 +7,18 @@ from .edit_worker import EditWorkerView
 from dexbot.storage import db_worker
 from dexbot.controllers.worker_controller import WorkerController
 from dexbot.views.errors import gui_error
+from dexbot.worker import Worker
 
 from PyQt5 import QtCore
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QWidget
 
 
 class WorkerItemWidget(QWidget, Ui_widget):
+
+    # Signals for this widget
+    sig_start_worker = pyqtSignal()
+    sig_stop_worker = pyqtSignal()
 
     def __init__(self, worker_name, worker_config, main_controller, view):
         super().__init__()
@@ -21,7 +27,6 @@ class WorkerItemWidget(QWidget, Ui_widget):
         self.worker_config = worker_config
         self.main_controller = main_controller
         self.view = view
-        self.running = False
 
         self.setupUi(self)
 
@@ -31,6 +36,10 @@ class WorkerItemWidget(QWidget, Ui_widget):
         self.onoff.mouseReleaseEvent = lambda _: self.toggle_worker()
 
         self.setup_ui_data(worker_config)
+
+        # Threading
+        self.__thread = None
+        self.running = False
 
     def setup_ui_data(self, config):
         worker_name = self.worker_name
@@ -81,16 +90,51 @@ class WorkerItemWidget(QWidget, Ui_widget):
 
     def _start_worker(self):
         self.running = True
+        self.__threads = []
         self._toggle_worker('TURN WORKER OFF', QtCore.Qt.AlignRight)
 
+        worker = Worker(self.worker_name, self.worker_config, self.main_controller.bitshares_instance, self)
+        thread = QThread()  # Create thread
+        thread.setObjectName('thread_' + str(self.worker_name))  # Give thread a name
+        print('Current thread : {}'.format(thread.objectName()))
+
+        # need to store worker too otherwise will be gc'd
+        self.__threads.append((thread, worker))
+        worker.moveToThread(thread)
+
+        # get progress messages from worker:
+        worker.sig_step.connect(self.set_status)
+        worker.sig_done.connect(self.pause_worker)
+        worker.sig_msg.connect(self.set_status)
+
+        # control worker:
+        self.sig_stop_worker.connect(worker.stop)
+
+        # get read to start worker:
+        # self.sig_start.connect(worker.work)  # needed due to PyCharm debugger bug (!); comment out next line
+        thread.started.connect(worker.run)
+        thread.start()  # this will emit 'started' and start thread's event loop
+
+        self.sig_start.emit()  # needed due to PyCharm debugger bug (!)
+
     @gui_error
+    @pyqtSlot(name='pause_worker')
     def pause_worker(self):
+        print('pausing worker')
         self.set_status("Pausing worker")
         self._pause_worker()
         self.main_controller.pause_worker(self.worker_name)
 
     def _pause_worker(self):
         self.running = False
+        self.set_status('Asking {} to stop'.format(self.worker_name))
+        self.sig_stop_worker.emit()
+        # note nice unpacking by Python, avoids indexing
+        for thread, worker in self.__threads:
+            thread.quit()  # this will quit **as soon as thread event loop unblocks**
+            thread.wait()  # <- so you need to wait for it to *actually* quit
+
+        self.set_status('Worker not running')
         self._toggle_worker('TURN WORKER ON', QtCore.Qt.AlignLeft)
 
     def set_worker_name(self, value):
@@ -137,9 +181,9 @@ class WorkerItemWidget(QWidget, Ui_widget):
 
     @gui_error
     def remove_widget_dialog(self):
-        dialog = ConfirmationDialog(
-            'Are you sure you want to remove worker "{}"?'.format(self.worker_name))
+        dialog = ConfirmationDialog('Are you sure you want to remove worker "{}"?'.format(self.worker_name))
         return_value = dialog.exec_()
+
         if return_value:
             self.remove_widget()
 
@@ -152,9 +196,14 @@ class WorkerItemWidget(QWidget, Ui_widget):
     def reload_widget(self, worker_name):
         """ Reload the data of the widget
         """
-        self.worker_config = self.main_controller.config.get_worker_config(worker_name)
-        self.setup_ui_data(self.worker_config)
+        # Get new worker config from the global config, which was updated on save
+        worker_config = self.main_controller.config.get_worker_config(worker_name)
+
+        # Pause worker
         self._pause_worker()
+
+        # Initialize widget again
+        self.setup_ui_data(worker_config)
 
     def handle_open_details(self):
         details_dialog = WorkerDetailsView(self.worker_name, self.worker_config)
@@ -170,12 +219,13 @@ class WorkerItemWidget(QWidget, Ui_widget):
         if return_value:
             new_worker_name = edit_worker_dialog.worker_name
             self.view.change_worker_widget_name(self.worker_name, new_worker_name)
-            self.main_controller.pause_worker(self.worker_name, config=self.worker_config)
+            self.main_controller.pause_worker(self.worker_name)
             self.main_controller.config.replace_worker_config(self.worker_name,
                                                               new_worker_name,
                                                               edit_worker_dialog.worker_data)
             self.worker_name = new_worker_name
             self.reload_widget(new_worker_name)
 
+    @pyqtSlot(str, name='set_status')
     def set_status(self, status):
         self.worker_status.setText(status)

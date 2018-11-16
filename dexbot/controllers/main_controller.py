@@ -60,7 +60,7 @@ class MainController:
 
         try:
             # Start the Worker
-            self.workers[worker_name].start()
+            self.workers[worker_name].run()
         except RuntimeError:
             # start() already called for this Worker object
             pass

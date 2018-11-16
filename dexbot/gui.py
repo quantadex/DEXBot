@@ -11,6 +11,15 @@ from PyQt5.Qt import QApplication
 from bitshares import BitShares
 
 
+def trap_exc_during_debug(*args):
+    # when app raises uncaught exception, print info
+    print(args)
+
+
+# install exception hook: without this, uncaught exception would cause application to exit
+sys.excepthook = trap_exc_during_debug
+
+
 class App(QApplication):
 
     def __init__(self, sys_argv):
