@@ -3,8 +3,19 @@ pyqt-distutils==0.7.3
 pyinstaller==3.4
 click-datetime==0.2
 cryptography==2.3
-aiohttp==3.0.1
+aiohttp==3.0.0b0
 requests>=2.20.0
 yarl==1.1.0
 ccxt==1.17.434
 pywaves==0.8.20
+
+# from setup
+#bitshares==0.3.0rc2
+uptick==0.2.0
+click
+sqlalchemy
+ruamel.yaml>=0.15.37
+sdnotify
+appdirs>=1.4.3
+pycryptodomex==3.6.4
+websocket-client==0.54.0

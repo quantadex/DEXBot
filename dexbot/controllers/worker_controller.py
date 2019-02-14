@@ -167,8 +167,10 @@ class WorkerController:
         except ValueError:
             return False
 
-        accounts = wallet.getAllAccounts(pubkey)
-        account_names = [account['name'] for account in accounts]
+        accounts = wallet.getAccountsFromPublicKey(pubkey)
+
+        account_names = [account for account in accounts]
+        print("Accounts=", account_names)
 
         if account in account_names:
             return True
