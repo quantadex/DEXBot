@@ -160,6 +160,8 @@ class AutoStrategyFormGenerator:
         label.setObjectName(element_name)
         layout = wrap.layout()
         layout.addWidget(label)
+        label.setMinimumSize(QtCore.QSize(120, 0))
+        
         label.setText(text)
 
         if description:
