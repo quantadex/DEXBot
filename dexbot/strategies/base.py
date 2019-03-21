@@ -271,6 +271,7 @@ class StrategyBase(Storage, StateMachine, Events):
 
         # Disabled flag - this flag can be flipped to True by a worker and will be reset to False after reset only
         self.disabled = False
+        self.clear_enabled = True
 
         # Order expiration time in seconds
         self.expiration = 60 * 60 * 24 * 365 * 5
@@ -445,6 +446,11 @@ class StrategyBase(Storage, StateMachine, Events):
             # One of the order cancels failed, cancel the orders one by one
             for order in orders:
                 self._cancel_orders(order)
+
+        # for order_id in orders:
+        #     res = self.remove_order({ "id": order_id})
+        #     self.log.info("update order to cancelled {} {}".format(order_id, res))
+
         return True
 
     def count_asset(self, order_ids=None, return_asset=False):
@@ -1042,13 +1048,16 @@ class StrategyBase(Storage, StateMachine, Events):
         self.cancel_all_orders()
 
         # Removes worker's orders from local database
-        self.clear_orders()
+
+        if self.clear_enabled:
+            self.clear_orders()
 
     def clear_all_worker_data(self):
         """ Clear all the worker data from the database and cancel all orders
         """
         # Removes worker's orders from local database
-        self.clear_orders()
+        if self.clear_enabled:
+            self.clear_orders()
 
         # Cancel all orders from the market
         self.cancel_all_orders()

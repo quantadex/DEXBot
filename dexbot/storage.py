@@ -8,9 +8,10 @@ from appdirs import user_data_dir
 from . import helper
 from dexbot import APP_NAME, AUTHOR
 
-from sqlalchemy import create_engine, Column, String, Integer, Float
+from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import scoped_session
 
 Base = declarative_base()
 
@@ -39,11 +40,15 @@ class Orders(Base):
     worker = Column(String)
     order_id = Column(String)
     order = Column(String)
+    userdata = Column(String)
+    deleted = Column(Boolean)
 
-    def __init__(self, worker, order_id, order):
+    def __init__(self, worker, order_id, order, userdata=''):
         self.worker = worker
         self.order_id = order_id
         self.order = order
+        self.userdata = userdata
+        self.deleted = False
 
 
 class Balances(Base):
@@ -98,6 +103,9 @@ class Storage(dict):
     def clear(self):
         db_worker.clear(self.category)
 
+    def update_order(self, order_id, user_data):
+        return db_worker.update_order(order_id, user_data)
+
     def save_order(self, order):
         """ Save the order to the database
         """
@@ -115,12 +123,12 @@ class Storage(dict):
         """
         db_worker.clear_orders(self.category)
 
-    def fetch_orders(self, worker=None):
+    def fetch_orders(self, worker=None, raw=False):
         """ Get all the orders (or just specific worker's orders) from the database
         """
         if not worker:
             worker = self.category
-        return db_worker.fetch_orders(worker)
+        return db_worker.fetch_orders(worker, raw)
 
     @staticmethod
     def clear_worker_data(worker):
@@ -134,6 +142,10 @@ class Storage(dict):
                            quote_total, quote_symbol, center_price, timestamp)
         # Save balance to db
         db_worker.save_balance(balance)
+
+    @staticmethod
+    def fetch_order(order_id):
+        return db_worker.fetch_order(order_id)
 
     @staticmethod
     def get_balance_history(account, worker, timestamp, base_asset, quote_asset):
@@ -154,7 +166,8 @@ class DatabaseWorker(threading.Thread):
         # Obtain engine and session
         engine = create_engine('sqlite:///%s' % sqlDataBaseFile, echo=False)
         Session = sessionmaker(bind=engine)
-        self.session = Session()
+        self.session = scoped_session(Session)
+
         Base.metadata.create_all(engine)
         self.session.commit()
 
@@ -268,6 +281,14 @@ class DatabaseWorker(threading.Thread):
             self.session.delete(row)
             self.session.commit()
 
+    def update_order(self,order_id, user_data):
+        e = self.session.query(Orders).filter_by(
+            order_id=order_id
+        ).update({ 'userdata': user_data})
+
+        self.session.commit()
+        return True
+
     def save_order(self, worker, order_id, order):
         self.execute_noreturn(self._save_order, worker, order_id, order)
 
@@ -291,7 +312,9 @@ class DatabaseWorker(threading.Thread):
             worker=worker,
             order_id=order_id
         ).first()
-        self.session.delete(e)
+        # non-destructive remove
+        e.deleted = True
+        #self.session.delete(e)
         self.session.commit()
 
     def clear_orders(self, worker):
@@ -305,13 +328,30 @@ class DatabaseWorker(threading.Thread):
             self.session.delete(row)
             self.session.commit()
 
-    def fetch_orders(self, category):
-        return self.execute(self._fetch_orders, category)
+    def fetch_order(self, order_id):
+        return self.execute(self._fetch_order, order_id)
 
-    def _fetch_orders(self, worker, token):
+    def _fetch_order(self, order_id, token):
+        """ Get first item that has bigger time as given timestamp and matches account and worker name
+        """
+        result = self.session.query(Orders).filter(
+            order_id=order_id
+        ).first()
+
+        self._set_result(token, result)
+
+    def fetch_orders(self, category, raw=False):
+        return self.execute(self._fetch_orders, category, raw)
+
+    def _fetch_orders(self, worker, raw, token):
         results = self.session.query(Orders).filter_by(
             worker=worker,
         ).all()
+
+        if raw:
+            self._set_result(token, results)
+            return
+
         if not results:
             result = None
         else:

@@ -169,6 +169,8 @@ class Strategy(StrategyBase):
         self.max_check_interval = 120
         self.current_check_interval = self.min_check_interval
 
+        self.cancel_all_orders()
+
         if self.view:
             self.update_gui_profit()
             self.update_gui_slider()

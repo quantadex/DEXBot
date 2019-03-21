@@ -36,6 +36,9 @@ install: build
 install-user: build-user
 	python3 setup.py install --user
 
+egg: build
+	python3 setup.py bdist_egg
+
 git:
 	git push --all
 	git push --tags
@@ -52,3 +55,4 @@ dist: build
 	python3 setup.py bdist_wheel upload
 
 release: clean check dist git
+

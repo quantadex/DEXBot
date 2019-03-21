@@ -1,6 +1,6 @@
-import ccxt
-import ccxt.async_support as accxt
 from dexbot.strategies.external_feeds.process_pair import split_pair
+import json
+from json import JSONEncoder
 
 def truncate(n, decimals=0):
     multiplier = 10 ** decimals
@@ -12,24 +12,51 @@ def num_after_point(x):
         return 0
     return len(s) - s.index('.') - 1
 
+class CrossMarketUserData:
+    '''
+    map of [operation_id] = { amount, asset_id }
+    map of [counteroffer_id] = { amount, limit_price, filled }
+    active: true/false
+    '''
+    def __init__(self, fill_orders={}, counterorder={}):
+        self.fill_orders = fill_orders
+        self.counterorder = counterorder
 
-class Strategy:
-    def __init__(self, exchange_id, internal_symbol, external_symbol, external_options):
+    '''
+    fill_orders = [Order]
+    returns True if changed
+    '''
+    def update(self, fill_orders):
+        changed = []
+        for x in fill_orders:
+            if str(x.virtual_op) not in self.fill_orders:
+                self.fill_orders[x.virtual_op] = {
+                    'amount': x['quote']['amount'],
+                    'asset_id': x['quote']['asset']['id']
+                }
+                changed.append(x)
+        return changed
+
+    @staticmethod
+    def fromJSON(data):
+        try:
+            result = json.loads(data)
+            return CrossMarketUserData(**result)
+        except:
+            return CrossMarketUserData()
+
+    def to_json(self):
+        return json.dumps(self.__dict__)
+
+class CrossMarketStrategy:
+    def __init__(self, internal_symbol, external_symbol, external_options):
         self.external_symbol = external_symbol
         self.internal_symbol = internal_symbol
         self.pair_i = split_pair(self.internal_symbol)
         self.pair_e = split_pair(self.external_symbol)
         self.minimum_amount = 0.01 # BTC
 
-        exchange_class = getattr(ccxt, exchange_id)
         self.percent_depth  = external_options['percent_depth']
-        self.min_spread = external_options['min_spread']
-        self.exchange = exchange_class({
-            'apiKey': external_options['api_key'],
-            'secret': external_options['api_secret'],
-            'timeout': 30000,
-            'enableRateLimit': True,
-        })
 
     def aggregate_decimals(self, depth, decimal):
         bids = []
@@ -55,8 +82,7 @@ class Strategy:
             b[1] *= self.percent_depth/100
         return depth
 
-    def calculate_depth(self):
-        depth = self.exchange.fetch_order_book(self.external_symbol,100)
+    def calculate_depth(self, depth):
         num_dec = num_after_point(depth['bids'][0][0])
         new_depth = depth.copy()
         new_depth['bids'] = self.aggregate_decimals(depth['bids'], num_dec-1)
@@ -66,9 +92,9 @@ class Strategy:
 
     # bids -- first one is the best bid
     # asks -- first one is the best ask
-    def calculate_spread(self, depth, center_price, num_dec):
+    def calculate_spread(self, min_spread, depth, center_price, num_dec):
         spread = depth["asks"][0][0] / depth["bids"][0][0] - 1
-        new_spread = spread + (self.min_spread/100)
+        new_spread = spread + (min_spread/100)
         lowest_price = center_price / (1 + (new_spread/2))
         highest_price = center_price * (1 + (new_spread/2))
 
@@ -100,6 +126,9 @@ class Strategy:
             "bids": bids, "asks": asks
         }
 
+    '''
+    Get average price to fill depth from amount (base)
+    '''
     @staticmethod
     def price_from_depth(depth, amount_):
         fill_depth = []
@@ -113,12 +142,39 @@ class Strategy:
                 current_amount -= amount
                 fill_depth.append([price, amount])
 
-        avg_total = 0
+        total_USD = 0
         for price,amount in fill_depth:
-            avg_total += price * amount
+            total_USD += price * amount
 
         #print(fill_depth)
-        return fill_depth, avg_total / amount_
+        return fill_depth, total_USD / amount_, total_USD
+
+
+    '''
+    Get average price to fill depth from amount (counter)
+    '''
+    @staticmethod
+    def price_from_depth_base(depth, total_counter):
+        fill_depth = []
+        current_amount = total_counter
+
+        for price,amount in depth:
+            total_amount = price * amount
+            # take all
+            if current_amount < total_amount:
+                fill_amount = current_amount / price
+                fill_depth.append([price, fill_amount])
+                current_amount = 0
+            else:
+                current_amount -= total_amount
+                fill_depth.append([price, amount])
+
+        total_amount = 0
+        for price,amount in fill_depth:
+            total_amount += amount
+
+        #print(fill_depth)
+        return fill_depth, total_counter / total_amount, total_amount
 
     '''
         Given a depth, balances, calculate the order that satisfy the constraint
@@ -135,45 +191,80 @@ class Strategy:
 
         for price,amount in filter_depth["bids"]:
             # how much can we buy BTC (giving USD) on our market?
-            pays_amount_usd = current_balance_internal[self.pair_i[1]] # USD
+            internal_pays_amount_usd = current_balance_internal[self.pair_i[1]] # USD
 
             # with the BTC on the external exchange, how much can we sell them for in USD
-            total_btc = current_balance_external[self.pair_i[0]]
+            total_btc = current_balance_external[self.pair_e[0]]
+            if total_btc == 0:
+                break
+
             # we should walk from our previous position just to  be precise
-            fill_depth, price_from_depth = self.price_from_depth(depth["bids"], total_btc)
-            total_USD = price_from_depth * total_btc
+            fill_depth, price_from_depth,external_total_USD = self.price_from_depth(depth["bids"], total_btc)
 
             # we should pick minimum money available internal market, and external market
-            pays_amount_usd_limit = price * amount
+            depth_pays_usd_limit = price * amount
 
             #print("min?", pays_amount_usd_limit, total_USD, pays_amount_usd)
-            usd_limit = min(pays_amount_usd_limit, total_USD, pays_amount_usd)
+            usd_limit = min(depth_pays_usd_limit, external_total_USD, internal_pays_amount_usd)
             btc_limit = usd_limit/price
 
             if btc_limit < self.minimum_amount:
                 #print("buy amount is too small ", btc_limit)
                 continue
 
-            fill_depth, price_from_depth = self.price_from_depth(depth["bids"], btc_limit)
+            fill_depth, price_from_depth, fill_USD = self.price_from_depth(depth["bids"], btc_limit)
             expected_usd_give = price * btc_limit
             expected_usd_take = price_from_depth * btc_limit
             expected_profit = expected_usd_take - expected_usd_give
-            print("Estimated profit={} {} buy_at={}, sell_at={}".format(expected_profit, self.pair_i[1], price, price_from_depth))
+            print("Estimated profit={:.2f} {} buy_at={}, sell_at={}".format(expected_profit, self.pair_i[1], price, price_from_depth))
 
             buy_orders.append([price, btc_limit])
             current_balance_internal[self.pair_i[1]] -= usd_limit
-            current_balance_external[self.pair_i[0]] -= btc_limit
+            current_balance_external[self.pair_e[0]] -= btc_limit
+
+        for price,amount in filter_depth["asks"]:
+            # how much can we sell BTC (giving BTC) on our market?
+            internal_pays_amount_btc = current_balance_internal[self.pair_i[0]]
+
+            # with the USD on the external exchange, how much BTC can we get
+            total_usd = current_balance_external[self.pair_e[1]]
+            if total_usd == 0:
+                break
+
+            # we should walk from our previous position just to  be precise
+            fill_depth, price_from_depth, external_total_BTC = self.price_from_depth_base(depth["asks"], total_usd)
+
+            # we should pick minimum money available internal market, and external market
+            pays_amount_btc_limit = amount
+
+            #print("min?", pays_amount_usd_limit, total_USD, pays_amount_usd)
+            btc_limit = min(pays_amount_btc_limit, external_total_BTC, internal_pays_amount_btc)
+            usd_limit = price * btc_limit
+
+            if btc_limit < self.minimum_amount:
+                #print("buy amount is too small ", btc_limit)
+                continue
+
+            fill_depth, price_from_depth, btc_filled = self.price_from_depth_base(depth["asks"], usd_limit)
+            expected_btc_give = btc_limit
+            expected_btc_take = btc_filled
+            expected_profit = expected_btc_take - expected_btc_give
+            print("Estimated profit={:.4f} {} (~{:.2f} {}) sell_at={}, buy_at={}".format(expected_profit, self.pair_i[0], expected_profit* price, self.pair_i[1], price, price_from_depth))
+
+            sell_orders.append([price, btc_limit])
+            current_balance_internal[self.pair_i[0]] -= btc_limit
+            current_balance_external[self.pair_e[1]] -= usd_limit
 
         return buy_orders, sell_orders
 
-    def update(self):
-        depth,num_dec = self.calculate_depth()
+    def update(self, depth, min_spread, balanceI, balanceE):
+        depth, raw_depth, num_dec = self.calculate_depth(depth)
         center_price = (depth['bids'][0][0] + depth['asks'][0][0]) / 2
-        spread,new_spread, lowest_price, highest_price = self.calculate_spread(depth, center_price,num_dec)
+        spread,new_spread, lowest_price, highest_price = self.calculate_spread(min_spread, depth, center_price,num_dec)
         new_depth = self.filter_depth(depth, lowest_price, highest_price)
 
         # create order based on our projected depth
+        buy_orders, sell_orders = self.calculate_orders(raw_depth, new_depth, balanceI, balanceE)
 
-        # update orders
-
+        return buy_orders, sell_orders
 

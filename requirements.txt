@@ -10,7 +10,7 @@ ccxt==1.17.434
 pywaves==0.8.20
 
 # from setup
-#bitshares==0.3.0rc2
+#bitshares==1.2.1
 uptick==0.2.0
 click
 sqlalchemy
