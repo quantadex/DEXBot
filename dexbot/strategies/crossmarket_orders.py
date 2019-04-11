@@ -8,6 +8,7 @@ from dexbot.strategies.crossmarket.external_market import ExternalMarket
 from dexbot.strategies.crossmarket.internal_market import InternalMarket
 from bitshares.amount import Amount, Asset
 import time
+from dexbot.strategies.external_feeds.price_feed import PriceFeed
 
 class Strategy(StrategyBase):
     """ Relative Orders strategy
@@ -16,11 +17,11 @@ class Strategy(StrategyBase):
     @classmethod
     def configure(cls, return_base_config=True):
         return StrategyBase.configure(return_base_config) + [
-            ConfigElement('amount', 'float', 1, 'Order Size',
-                          'Fixed order size, expressed in quote asset, unless "relative order size" selected',
-                          (0, None, 8, '')),
-            ConfigElement('relative_order_size', 'bool', False, 'Relative order size',
-                          'Amount is expressed as a percentage of the account balance of quote/base asset', None),
+            # ConfigElement('amount', 'float', 1, 'Order Size',
+            #               'Fixed order size, expressed in quote asset, unless "relative order size" selected',
+            #               (0, None, 8, '')),
+            #ConfigElement('relative_order_size', 'bool', False, 'Relative order size',
+            #              'Amount is expressed as a percentage of the account balance of quote/base asset', None),
             ConfigElement('spread', 'float', 5, 'Min Spread',
                           'Minimum spread between the external, and our own orders', (0, 100, 2, '%')),
             ConfigElement('external_price_source', 'choice', EXCHANGES[0], 'External price source',
@@ -81,13 +82,14 @@ class Strategy(StrategyBase):
         self.empty_market = False
 
         # Get market center price from Bitshares
-        self.market_center_price = self.get_market_center_price(suppress_errors=True)
+        self.market_center_price = None # self.get_market_center_price(suppress_errors=True)
 
         # Set external price source, defaults to False if not found
         self.external_feed = self.worker.get('external_feed', True)
         self.external_price_source = self.worker.get('external_price_source', None)
         self.external_market_ticker = self.worker.get('external_market_ticker', self.market.get_string("/"))
-        self.strategy = CrossMarketStrategy(self.market.get_string("/"), self.external_market_ticker, {"percent_depth": 10})
+        self.percent_depth = self.worker.get('limit_order_depth_multiplier', 10.0)
+        self.strategy = CrossMarketStrategy(self.market.get_string("/"), self.external_market_ticker, {"percent_depth": self.percent_depth})
         self.external_market = ExternalMarket(self.worker.get('external_price_source', ''),
                                                 {
                                                     "api_key": self.worker.get('external_market_api_key', ''),
@@ -97,7 +99,7 @@ class Strategy(StrategyBase):
 
         if self.external_feed:
             # Get external center price from given source
-            self.external_market_center_price = self.get_external_market_center_price(self.external_price_source)
+            self.external_market_center_price = self.get_center_simple(self.external_price_source,self.external_market_ticker)
 
         if not self.market_center_price:
             # Bitshares has no center price making it an empty market or one that has only one sided orders
@@ -113,13 +115,13 @@ class Strategy(StrategyBase):
             # Use manually set center price
             self.center_price = self.worker["center_price"]
             
-        self.is_relative_order_size = self.worker.get('relative_order_size', False)
+        #self.is_relative_order_size = self.worker.get('relative_order_size', False)
         self.is_asset_offset = self.worker.get('center_price_offset', False)
         self.manual_offset = self.worker.get('manual_offset', 0) / 100
-        self.order_size = float(self.worker.get('amount', 1))
+        #self.order_size = float(self.worker.get('amount', 1))
 
         # Spread options
-        self.spread = self.worker.get('spread') / 100
+        self.spread = self.worker.get('spread')
         self.market_depth_amount = self.worker.get('market_depth_amount', 0)
 
         self.is_reset_on_partial_fill = self.worker.get('reset_on_partial_fill', True)
@@ -169,21 +171,29 @@ class Strategy(StrategyBase):
             do not triggers a market_update event
         """
         if (self.is_reset_on_price_change and not
-                self.counter % 8):
+                self.counter % 5):
             self.log.debug('Checking orders by tick threshold')
             self.check_orders()
         self.counter += 1
 
+    def get_center_simple(self, external_price_source, external_ticker):
+        market = external_ticker or self.market.get_string('/')
+        self.log.debug('market: {}  '.format(market))
+        price_feed = PriceFeed(external_price_source, market)
+        price_feed.filter_symbols()
+        center_price = price_feed.get_center_price(None)
+        return center_price
+
     def calculate_order_prices(self):
         depth = self.external_market.getDepth(self.external_market_ticker)
-        self.center_price = self.get_external_market_center_price(self.external_price_source)
+        self.center_price = self.get_external_market_center_price(self.external_price_source,self.external_market_ticker)
         depth,raw_depth, num_dec = self.strategy.calculate_depth(depth)
-        spread,new_spread, lowest_price, highest_price = self.strategy.calculate_spread(0.50, depth, self.center_price,num_dec)
-        print("spread=", self.center_price, spread, new_spread, lowest_price, highest_price)
+        spread,new_spread, lowest_price, highest_price = self.strategy.calculate_spread(self.spread, depth, self.center_price,num_dec)
+        self.log.info("center_price={} spread={} new_spread={} lowest_price={} highest_price={}".format(self.center_price, spread, new_spread, lowest_price, highest_price))
 
         # step 3: with spread, let's filter the depth to only our interested spread
         new_depth = self.strategy.filter_depth(depth, lowest_price, highest_price)
-        print("filter_depth=", new_depth)
+        #self.log.info("filter_depth={}".format(new_depth))
 
         balanceI = { self.market['quote'].symbol: self.balance(self.market['quote']).amount,
                      self.market['base'].symbol: self.balance(self.market['base']).amount}
@@ -196,10 +206,10 @@ class Strategy(StrategyBase):
         self.log.info("{} balance used={} total={}".format(self.external_price_source, balanceE, balanceET))
 
         self.buy_orders, self.sell_orders = self.strategy.calculate_orders(raw_depth, new_depth, balanceI, balanceE)
-
+        self.log.info("buys={} sells={}".format(self.buy_orders, self.sell_orders))
 
     def update_orders(self):
-        self.log.debug('Starting to update orders')
+        self.log.info('Starting to update orders')
 
         # Cancel the orders before redoing them
         self.cancel_all_orders()
@@ -248,21 +258,21 @@ class Strategy(StrategyBase):
                 self.log.critical(
                     "Cannot estimate center price, there is no highest bid."
                 )
-                self.disabled = True
+                #self.disabled = True
             return None
         elif lowest_ask is None or lowest_ask == 0.0:
             if not suppress_errors:
                 self.log.critical(
                     "Cannot estimate center price, there is no lowest ask."
                 )
-                self.disabled = True
+                #self.disabled = True
             return None
 
         # Calculate center price between two closest orders on the market
         return highest_bid * math.sqrt(lowest_ask / highest_bid)
 
     def calculate_center_price(self, center_price=None, asset_offset=False, spread=None,
-                               order_ids=None, manual_offset=0, suppress_errors=False):
+                               order_ids=None, manual_offset=0, suppress_errors=True):
         """ Calculate center price which shifts based on available funds
         """
         if center_price is None:
@@ -340,37 +350,43 @@ class Strategy(StrategyBase):
         # place new counter fill orders
         for order in changed:
             if order["type"] == "buy":
-                print("Buy", order)
+                self.log.info("Counterfill: {}".format(order))
                 # sell on crossmarket
-                order = self.external_market.sell_order(self.external_market_ticker, 0, order['quote']['amount'])
-                new_orders[order["id"]] = order
-            if order["type"] == "sell":
-                print("Sell", order)
-                order = self.external_market.buy_order(self.external_market_ticker, 0, order['quote']['amount'])
-                new_orders[order["id"]] = order
+                order_res = self.external_market.sell_order(self.external_market_ticker, 0, order['quote']['amount'])
+                new_orders[order_res["id"]] = order
+            elif order["type"] == "sell":
+                self.log.info("Sell {}".format(order))
+                order_res = self.external_market.buy_order(self.external_market_ticker, 0, order['quote']['amount'])
+                new_orders[order_res["id"]] = order
 
         # probably orders executed in 2 sec.
         time.sleep(2)
 
         # update counter status
         # might need to convert base/counter => basecounter
-        orders = self.external_market.fetch_closed_trades(self.external_market_ticker)
-        for order_fetched in orders:
+        external_orders = self.external_market.fetch_closed_trades(self.external_market_ticker)
+        for order_fetched in external_orders:
             if order_fetched["id"] in new_orders:
                 # fetch in db
-                res = self.fetch_order(order_fetched["id"])
+                order = new_orders[order_fetched["id"]]
+                res = self.fetch_order(order.order_id)
                 if res:
+                    self.log.info("order updated - filled " + order_fetched["id"])
                     user_data = CrossMarketUserData.fromJSON(res.userdata)
                     user_data.fill_orders[order_fetched["id"]] = order_fetched
-                    self.update_order(order_fetched["id"], user_data.to_json())
+                    self.update_order(order.order_id, user_data.to_json())
                 else:
-                    print("could not find order in db " + order_fetched["id"])
-            else:
-                print("order " + order_fetched["id"] + " did not fill after 2 sec")
+                    self.log.info("order " + order_fetched["id"] + " did not fill after 2 sec")
+                    self.log.info("could not find order in db " + order_fetched["id"])
+
 
     def check_orders(self, *args, **kwargs):
         """ Tests if the orders need updating
         """
+
+        # wait for api to catch up
+        time.sleep(1)
+
         delta = datetime.now() - self.last_check
 
         # Store current available balance and balance in orders to the database for profit calculation purpose
@@ -388,9 +404,16 @@ class Strategy(StrategyBase):
         if not orders:
             need_update = True
         else:
+            self.log.info("checking filled orders")
+
             # get filled orders
             ops = self.internal_market.get_account_orders_by_operation_type(self.account.identifier, "4")
             filled = self.internal_market.transform_to_order(ops, self.market['base']['id'])
+            #print("Checking ops", len(ops),len(filled))
+
+            filled_ids = list(map(lambda x: x.order_id, filled))
+            #print("filled", filled_ids)
+
             changed_set = []
             current_active_orders = 0
             # Loop trough the orders and look for changes
@@ -417,8 +440,12 @@ class Strategy(StrategyBase):
             if current_active_orders <= 0:
                 need_update = True
 
-            self.log.info('total orders fill updated = {} active_orders={}'.format(len(changed_set), current_active_orders))
-            self.counter_fill(changed_set)
+            if len(changed_set) > 0:
+                try:
+                    self.log.info('total orders fill updated = {} active_orders={}'.format(len(changed_set), current_active_orders))
+                    self.counter_fill(changed_set)
+                except Exception as x:
+                    self.log.info(str(x))
 
         # Check center price change when using market center price with reset option on change
         if self.is_reset_on_price_change and self.is_center_price_dynamic:
@@ -426,13 +453,15 @@ class Strategy(StrategyBase):
             # same time as reset_on_price_change
             spread = self.spread
 
-            center_price = self.calculate_center_price(
-                None,
-                self.is_asset_offset,
-                spread,
-                self['order_ids'],
-                self.manual_offset
-            )
+            # center_price = self.calculate_center_price(
+            #     None,
+            #     self.is_asset_offset,
+            #     spread,
+            #     self['order_ids'],
+            #     self.manual_offset
+            # )
+            center_price = self.get_center_simple(self.external_price_source,
+                                                                      self.external_market_ticker)
             diff = abs((self.center_price - center_price) / self.center_price)
             if diff >= self.price_change_threshold:
                 self.log.debug('Center price changed, updating orders. Diff: {:.2%}'.format(diff))

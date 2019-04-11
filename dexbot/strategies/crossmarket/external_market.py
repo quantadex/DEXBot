@@ -16,7 +16,7 @@ class ExternalMarket:
         return self.exchange.fetch_balance()
 
     def getDepth(self, symbol):
-        return self.exchange.fetch_order_book(symbol,100)
+        return self.exchange.fetch_order_book(symbol,500)
 
     '''
     {
@@ -45,16 +45,16 @@ class ExternalMarket:
         return self.exchange.fetch_closed_orders(symbol)
 
     def buy_order(self, ticker, price, amount):
-        print("Buy {} amount={}".format(ticker, amount))
-        #return self.exchange.create_market_buy_order(ticker, amount)
-        return {
-            'id': self.id + 1
-        }
+        print("Counterfill: Buy {} amount={}".format(ticker, amount))
+        return self.exchange.create_market_buy_order(ticker, amount)
+        # return {
+        #     'id': self.id + 1
+        # }
 
     def sell_order(self, ticker, price, amount):
-        print("Sell {} amount={}".format(ticker, amount))
-        #return self.exchange.create_market_sell_order(ticker, amount)
-        return {
-            'id': self.id + 1
-        }
+        print("Counterfill: Sell {} amount={}".format(ticker, amount))
+        return self.exchange.create_market_sell_order(ticker, amount)
+        # return {
+        #     'id': self.id + 1
+        # }
 

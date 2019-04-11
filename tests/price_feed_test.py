@@ -15,7 +15,7 @@ class PriceFeedTest(unittest.TestCase):
         print('PriceFeed: {}'.format(center_price))
 
     def test_strategy(self):
-        strat = CrossMarketStrategy("BTC/USDT", "BTC/USDT", {"percent_depth": 10})
+        strat = CrossMarketStrategy("BTC/USDT", "BTC/USDT", {"percent_depth": 0.1})
         market = ExternalMarket("binance", {"api_key": "", "api_secret": "", })
         depth = market.getDepth("BTC/USDT")
 
@@ -24,15 +24,15 @@ class PriceFeedTest(unittest.TestCase):
         print("depth=", depth)
         center_price = (depth['bids'][0][0] + depth['asks'][0][0]) / 2
         # step best selling, and buying price
-        spread,new_spread, lowest_price, highest_price = strat.calculate_spread(0.50, depth, center_price,num_dec)
-        print("spread=", center_price, spread, new_spread, lowest_price, highest_price)
+        spread,new_spread, lowest_price, highest_price = strat.calculate_spread(1, depth, center_price,num_dec)
+        print("center={} spread={} new_spread={} lowest={} highest={}".format(center_price, spread, new_spread, lowest_price, highest_price))
 
         # step 3: with spread, let's filter the depth to only our interested spread
         new_depth = strat.filter_depth(depth, lowest_price, highest_price)
         print("filter_depth=", new_depth)
 
-        balanceI = {"BTC": 2.0, "USDT": 8000.0}
-        balanceE = {"BTC": 2.0, "USDT": 8000.0}
+        balanceI = {"BTC": 0.56036679, "USDT": 0.0}
+        balanceE = {"BTC": 0.56036679, "USDT": 0.0}
 
         buy_orders, sell_orders = strat.calculate_orders(raw_depth, new_depth, balanceI, balanceE)
         print("Buy orders=", buy_orders)

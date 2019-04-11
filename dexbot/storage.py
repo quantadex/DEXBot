@@ -334,7 +334,7 @@ class DatabaseWorker(threading.Thread):
     def _fetch_order(self, order_id, token):
         """ Get first item that has bigger time as given timestamp and matches account and worker name
         """
-        result = self.session.query(Orders).filter(
+        result = self.session.query(Orders).filter_by(
             order_id=order_id
         ).first()
 

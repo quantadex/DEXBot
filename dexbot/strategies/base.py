@@ -611,14 +611,14 @@ class StrategyBase(Storage, StateMachine, Events):
         except IndexError:
             return None
 
-    def get_external_market_center_price(self, external_price_source):
+    def get_external_market_center_price(self, external_price_source, external_ticker=None):
         """ Get center price from an external market for current market pair
 
             :param external_price_source: External market name
             :return: Center price as float
         """
         self.log.debug('inside get_external_mcp, exchange: {} '.format(external_price_source))
-        market = self.market.get_string('/')
+        market = external_ticker or self.market.get_string('/')
         self.log.debug('market: {}  '.format(market))
         price_feed = PriceFeed(external_price_source, market)
         price_feed.filter_symbols()
@@ -633,7 +633,7 @@ class StrategyBase(Storage, StateMachine, Events):
                 self.log.debug('Consolidated center price: {}'.format(center_price))
         return center_price
 
-    def get_market_center_price(self, base_amount=0, quote_amount=0, suppress_errors=False):
+    def get_market_center_price(self, base_amount=0, quote_amount=0, suppress_errors=True):
         """ Returns the center price of market including own orders.
 
             :param float | base_amount:
@@ -649,13 +649,13 @@ class StrategyBase(Storage, StateMachine, Events):
         if buy_price is None or buy_price == 0.0:
             if not suppress_errors:
                 self.log.critical("Cannot estimate center price, there is no highest bid.")
-                self.disabled = True
+                #self.disabled = True
                 return None
             
         if sell_price is None or sell_price == 0.0:
             if not suppress_errors:
                 self.log.critical("Cannot estimate center price, there is no lowest ask.")
-                self.disabled = True
+                #self.disabled = True
                 return None
             # Calculate and return market center price. make sure buy_price has value
         if buy_price:

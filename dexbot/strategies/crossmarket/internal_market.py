@@ -2,7 +2,7 @@ import json
 import urllib.request
 from bitshares.price import FilledOrder, Order
 
-DEFAULT_URL = "https://wya99cec1d.execute-api.us-east-1.amazonaws.com/testnet/account"
+DEFAULT_URL = "https://wya99cec1d.execute-api.us-east-1.amazonaws.com/mainnet/account"
 
 class InternalMarket:
     def __init__(self, url=DEFAULT_URL):

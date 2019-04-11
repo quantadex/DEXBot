@@ -1,6 +1,10 @@
-from dexbot.strategies.external_feeds.process_pair import split_pair
 import json
 from json import JSONEncoder
+
+def split_pair(symbol):
+    pair = re.split(':|/', symbol)
+    return pair
+
 
 def truncate(n, decimals=0):
     multiplier = 10 ** decimals
@@ -77,9 +81,9 @@ class CrossMarketStrategy:
 
     def percent_of_depth(self, depth):
         for b in depth["bids"]:
-            b[1] *= self.percent_depth/100
+            b[1] *= self.percent_depth/100.0
         for b in depth["asks"]:
-            b[1] *= self.percent_depth/100
+            b[1] *= self.percent_depth/100.0
         return depth
 
     def calculate_depth(self, depth):
