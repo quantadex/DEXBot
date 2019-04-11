@@ -25,6 +25,25 @@ Join the [Telegram Chat for DEXBot](https://t.me/DEXBOTbts).
 
 See instructions in the [Wiki](https://github.com/Codaone/DEXBot/wiki) for [Linux](https://github.com/Codaone/DEXBot/wiki/Setup-Guide-for-Linux), [Windows](https://github.com/Codaone/DEXBot/wiki/Setup-Guide-for-Windows), [OSX](https://github.com/Codaone/DEXBot/wiki/Setup-Guide-for-Mac-OS-X). [Raspberry Pi](https://github.com/Codaone/DEXBot/wiki/Setup-guide-for-Raspberry-Pi). Other users can try downloading the package or following the Linux guide.
 
+### Building for QUANTA
+
+QUANTADEX is a fork of bitshares, which means we have to install a quanta python library equivalent.
+
+```
+pip uninstall -y bitshares
+python -m easy_install bitshares-quanta-1.2.1-py3.7.egg
+```
+
+Then run it directly:
+
+```
+python cli.py 
+or
+python gui.py
+```
+
+
+
 ## Build status
 
 master:  

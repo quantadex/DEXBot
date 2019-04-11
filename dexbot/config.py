@@ -169,6 +169,7 @@ class Config(dict):
     def node_list(self):
         """ A pre-defined list of Bitshares nodes. """
         return [
+            "ws://mainnet-api.quantachain.io:8090",
             "ws://testnet-01.quantachain.io:8090"
             # "wss://eu.openledger.info/ws",
             # "wss://bitshares.openledger.info/ws",

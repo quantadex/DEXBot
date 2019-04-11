@@ -6,7 +6,7 @@ COPY requirements.txt ./
 COPY dist/bitshares-1.2.1-py3.7.egg ./
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip uninstall -y bitshares
-RUN python -m easy_install bitshares-1.2.1-py3.7.egg
+RUN python -m easy_install bitshares-quanta-1.2.1-py3.7.egg
 COPY . .
 
 CMD [ "/bin/bash" ]
